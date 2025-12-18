@@ -100,7 +100,7 @@ export default function DashboardLayout({ activePage, onPageChange, onLogout, ch
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 bg-cyan-600 rounded-full flex items-center justify-center">
               <span className="text-white text-sm font-medium">
-                {JSON.parse(localStorage.getItem('user') || '{}').name?.charAt(0) || 'U'}
+                {JSON.parse(localStorage.getItem('authData') || '{}').name?.charAt(0) || 'U'}
               </span>
             </div>
           </div>

@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { authAPI } from '../services/api';
+import { findUserByCredentials } from '../services/userService';
 
 export default function Login({ onLoginSuccess, onSwitchToSignup }) {
   const [formData, setFormData] = useState({
-    identifier: '',
-    password: ''
+    studentId: '',
+    email: '',
+    password: '',
+    role: 'student',
   });
   const [errors, setErrors] = useState({});
   const [message, setMessage] = useState('');
@@ -12,7 +14,12 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
 
   const validate = () => {
     const newErrors = {};
-    if (!formData.identifier.trim()) newErrors.identifier = 'Email or Student ID is required';
+    if (formData.role === 'student') {
+      if (!formData.studentId.trim()) newErrors.studentId = 'Student ID is required';
+      if (!formData.email.trim()) newErrors.email = 'Email is required';
+    } else {
+      if (!formData.email.trim()) newErrors.email = 'Email is required';
+    }
     if (!formData.password.trim()) newErrors.password = 'Password is required';
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -32,12 +39,57 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
 
     setLoading(true);
     try {
-      const data = await authAPI.login(formData);
-      localStorage.setItem('token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      const selectedRole = formData.role;
+      const password = formData.password.trim();
+      const email = formData.email.trim();
+      const studentId = formData.studentId.trim();
+
+      // Find user based on role and credentials
+      const user = findUserByCredentials({
+        email,
+        studentId: selectedRole === 'student' ? studentId : null,
+        password,
+        role: selectedRole,
+      });
+
+      if (!user) {
+        if (selectedRole === 'student') {
+          setMessage('Invalid student ID, email, or password');
+        } else {
+          setMessage('Invalid email or password');
+        }
+        return;
+      }
+
+      // Store auth info locally (no backend/token)
+      // For students: store role, studentId, email
+      // For admins: store role and email (NO studentId)
+      const authData = {
+        role: user.role,
+        email: user.email,
+      };
+
+      if (user.role === 'student' && user.studentId) {
+        authData.studentId = user.studentId;
+      }
+      if (user.name) {
+        authData.name = user.name;
+      }
+
+      localStorage.setItem('authData', JSON.stringify(authData));
+      localStorage.setItem('role', user.role);
+      localStorage.setItem('token', 'local-mock-token');
+
       onLoginSuccess?.();
-    } catch (error) {
-      setMessage(error.message);
+
+      // Redirect based on role
+      if (user.role === 'admin') {
+        window.location.href = '/admin/dashboard';
+      } else {
+        window.location.href = '/student/dashboard';
+      }
+    } catch (err) {
+      setMessage(err.message || 'Login failed. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -62,22 +114,79 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Email or Student ID */}
+            {/* Role Selection */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-3">
+                Select Role
+              </label>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, role: 'student' }));
+                    setErrors(prev => ({ ...prev, studentId: '', email: '' }));
+                  }}
+                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
+                    formData.role === 'student'
+                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  Student
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setFormData(prev => ({ ...prev, role: 'admin' }));
+                    setErrors(prev => ({ ...prev, studentId: '', email: '' }));
+                  }}
+                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
+                    formData.role === 'admin'
+                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                  }`}
+                >
+                  Admin
+                </button>
+              </div>
+            </div>
+
+            {/* Student ID Field - Only for Students */}
+            {formData.role === 'student' && (
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
-                Email or Student ID
+                Student ID
               </label>
               <input
                 type="text"
-                name="identifier"
-                value={formData.identifier}
+                name="studentId"
+                value={formData.studentId}
                 onChange={handleChange}
-                placeholder="john@example.com or STU001"
+                placeholder="S1001"
                 className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                  errors.identifier ? 'border-red-500' : 'border-slate-600'
+                  errors.studentId ? 'border-red-500' : 'border-slate-600'
                 }`}
               />
-              {errors.identifier && <p className="mt-1.5 text-sm text-red-400">{errors.identifier}</p>}
+              {errors.studentId && <p className="mt-1.5 text-sm text-red-400">{errors.studentId}</p>}
+            </div>
+            )}
+
+            {/* Email */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="john@example.com"
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
+                  errors.email ? 'border-red-500' : 'border-slate-600'
+                }`}
+              />
+              {errors.email && <p className="mt-1.5 text-sm text-red-400">{errors.email}</p>}
             </div>
 
             {/* Password */}

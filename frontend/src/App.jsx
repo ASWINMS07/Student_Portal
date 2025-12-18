@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Login from './pages/Login';
 import Signup from './pages/Signup';
 import Dashboard from './pages/Dashboard';
+import AdminDashboard from './pages/AdminDashboard';
 
 function App() {
   const [page, setPage] = useState('login');
@@ -24,6 +25,10 @@ function App() {
   };
 
   if (isAuthenticated) {
+    const role = localStorage.getItem('role');
+    if (role === 'admin') {
+      return <AdminDashboard />;
+    }
     return <Dashboard onLogout={handleLogout} />;
   }
 

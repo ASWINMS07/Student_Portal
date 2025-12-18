@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
-import { attendanceAPI, marksAPI, feesAPI, coursesAPI, timetableAPI, profileAPI, seedAPI } from '../services/api';
+import { feesAPI, coursesAPI, timetableAPI, seedAPI } from '../services/api';
+import { getAttendanceForStudent } from '../services/attendanceService';
+import { getMarksForStudent } from '../services/marksService';
+import { getProfileForStudent } from '../services/profileService';
 
 // Page Components
 function DashboardHome() {
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const authData = JSON.parse(localStorage.getItem('authData') || '{}');
   const [seeding, setSeeding] = useState(false);
   const [seedMessage, setSeedMessage] = useState({ type: '', text: '' });
 
@@ -26,7 +29,7 @@ function DashboardHome() {
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-white mb-2">Welcome back, {user.name || 'Student'}!</h2>
+            <h2 className="text-xl font-semibold text-white mb-2">Welcome back, Student!</h2>
             <p className="text-slate-400">Here's an overview of your academic progress.</p>
           </div>
           <button
@@ -71,12 +74,19 @@ function AttendancePage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchAttendance = async () => {
+    const fetchAttendance = () => {
       try {
-        const data = await attendanceAPI.getAttendance();
+        const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
+        const studentId = storedAuth.studentId;
+
+        if (!studentId) {
+          throw new Error('No student information found. Please log in again.');
+        }
+
+        const data = getAttendanceForStudent(studentId);
         setAttendance(data);
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to load attendance.');
       } finally {
         setLoading(false);
       }
@@ -186,15 +196,23 @@ function MarksPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchMarks = async () => {
+    const fetchMarks = () => {
       try {
-        const data = await marksAPI.getMarks();
+        const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
+        const studentId = storedAuth.studentId;
+
+        if (!studentId) {
+          throw new Error('No student information found. Please log in again.');
+        }
+
+        const data = getMarksForStudent(studentId);
         setMarksData(data);
+
         if (data.semesters.length > 0) {
           setSelectedSemester(data.semesters[0].semester);
         }
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to load marks.');
       } finally {
         setLoading(false);
       }
@@ -667,66 +685,30 @@ function TimetablePage() {
 }
 
 function ProfilePage() {
-  const [profile, setProfile] = useState({
-    name: '',
-    studentId: '',
-    email: '',
-    phone: '',
-    createdAt: ''
-  });
-  const [formData, setFormData] = useState({ name: '', email: '', phone: '' });
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
-  const [message, setMessage] = useState({ type: '', text: '' });
 
   useEffect(() => {
-    const fetchProfile = async () => {
+    const fetchProfile = () => {
       try {
-        const data = await profileAPI.getProfile();
+        const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
+        const studentId = storedAuth.studentId;
+
+        if (!studentId) {
+          throw new Error('No student information found. Please log in again.');
+        }
+
+        const data = getProfileForStudent(studentId);
         setProfile(data);
-        setFormData({ name: data.name, email: data.email, phone: data.phone || '' });
       } catch (err) {
-        setError(err.message);
+        setError(err.message || 'Failed to load profile.');
       } finally {
         setLoading(false);
       }
     };
     fetchProfile();
   }, []);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-  };
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setMessage({ type: '', text: '' });
-    setSaving(true);
-
-    try {
-      const data = await profileAPI.updateProfile(formData);
-      setProfile(prev => ({ ...prev, ...data.user }));
-      // Update localStorage
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      localStorage.setItem('user', JSON.stringify({ ...storedUser, ...data.user }));
-      setMessage({ type: 'success', text: 'Profile updated successfully!' });
-    } catch (err) {
-      setMessage({ type: 'error', text: err.message });
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const formatDate = (dateString) => {
-    if (!dateString) return '-';
-    return new Date(dateString).toLocaleDateString('en-IN', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric'
-    });
-  };
 
   if (loading) {
     return (
@@ -744,6 +726,10 @@ function ProfilePage() {
     );
   }
 
+  if (!profile) {
+    return null;
+  }
+
   return (
     <div className="space-y-6">
       {/* Profile Header */}
@@ -757,102 +743,52 @@ function ProfilePage() {
           <div>
             <h2 className="text-xl font-semibold text-white">{profile.name}</h2>
             <p className="text-slate-400">Student ID: {profile.studentId}</p>
-            <p className="text-slate-500 text-sm">Member since {formatDate(profile.createdAt)}</p>
+            <p className="text-slate-400 text-sm">Department: {profile.department || '-'}</p>
           </div>
         </div>
       </div>
 
-      {/* Edit Form */}
+      {/* Read-only Details */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-5">Edit Profile</h3>
+        <h3 className="text-lg font-semibold text-white mb-5">Profile Details</h3>
 
-        {message.text && (
-          <div className={`mb-5 p-4 rounded-lg text-sm ${
-            message.type === 'success'
-              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-              : 'bg-red-500/10 border border-red-500/20 text-red-400'
-          }`}>
-            {message.text}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-5 max-w-md">
-          {/* Student ID (Read-only) */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-400 mb-2">
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
+              Name
+            </p>
+            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
+              {profile.name}
+            </p>
+          </div>
+
+          <div>
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
               Student ID
-            </label>
-            <input
-              type="text"
-              value={profile.studentId}
-              disabled
-              className="w-full px-4 py-3 bg-slate-900/30 border border-slate-700 rounded-lg text-slate-500 cursor-not-allowed"
-            />
-            <p className="text-xs text-slate-500 mt-1">Student ID cannot be changed</p>
+            </p>
+            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
+              {profile.studentId}
+            </p>
           </div>
 
-          {/* Name */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Full Name
-            </label>
-            <input
-              type="text"
-              name="name"
-              value={formData.name}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-            />
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
+              Email
+            </p>
+            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2 break-all">
+              {profile.email}
+            </p>
           </div>
 
-          {/* Email */}
           <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Email Address
-            </label>
-            <input
-              type="email"
-              name="email"
-              value={formData.email}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-            />
+            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
+              Phone
+            </p>
+            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
+              {profile.phone || '-'}
+            </p>
           </div>
-
-          {/* Phone */}
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">
-              Phone Number
-            </label>
-            <input
-              type="tel"
-              name="phone"
-              value={formData.phone}
-              onChange={handleChange}
-              placeholder="Enter phone number"
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <button
-            type="submit"
-            disabled={saving}
-            className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200"
-          >
-            {saving ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                </svg>
-                Saving...
-              </span>
-            ) : (
-              'Save Changes'
-            )}
-          </button>
-        </form>
+        </div>
       </div>
     </div>
   );
@@ -864,7 +800,7 @@ export default function Dashboard({ onLogout }) {
 
   const handleLogout = () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('authData');
     onLogout?.();
   };
 
