@@ -52,7 +52,7 @@ export default function AdminEditStudent({ studentId, onClose, onSaved }) {
     setSaving(true);
 
     try {
-      const updated = updateStudent(formData.studentId, {
+      const updated = await updateStudent(studentId, {
         name: formData.name,
         email: formData.email,
         phone: formData.phone,

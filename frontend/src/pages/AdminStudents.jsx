@@ -69,6 +69,7 @@ export default function AdminStudents() {
                 <th className="px-4 py-3 text-left font-medium text-slate-300">Student ID</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-300">Name</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-300">Email</th>
+                <th className="px-4 py-3 text-left font-medium text-slate-300">Department</th>
                 <th className="px-4 py-3 text-left font-medium text-slate-300">Phone</th>
                 <th className="px-4 py-3 text-right font-medium text-slate-300">Actions</th>
               </tr>
@@ -77,7 +78,7 @@ export default function AdminStudents() {
               {students.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={5}
+                    colSpan={6}
                     className="px-4 py-6 text-center text-slate-400"
                   >
                     No students found.
@@ -97,6 +98,9 @@ export default function AdminStudents() {
                     </td>
                     <td className="px-4 py-3 text-slate-300 break-all">
                       {student.email}
+                    </td>
+                    <td className="px-4 py-3 text-slate-300">
+                      {student.department || '-'}
                     </td>
                     <td className="px-4 py-3 text-slate-300">
                       {student.phone || '-'}

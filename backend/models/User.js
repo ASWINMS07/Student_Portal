@@ -33,6 +33,10 @@ const userSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  department: {
+    type: String,
+    trim: true
+  },
   createdAt: {
     type: Date,
     default: Date.now

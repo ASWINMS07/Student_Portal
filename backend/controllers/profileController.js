@@ -13,6 +13,7 @@ exports.getProfile = async (req, res) => {
       studentId: user.studentId,
       email: user.email,
       phone: user.phone || '',
+      department: user.department || '',
       createdAt: user.createdAt
     });
   } catch (error) {
