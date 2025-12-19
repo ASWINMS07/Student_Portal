@@ -11,10 +11,10 @@ import { seedAPI } from '../services/api';
 // Page Components
 function DashboardHome() {
   const [stats, setStats] = useState([
-    { label: 'Attendance', value: '...', color: 'cyan' },
-    { label: 'CGPA', value: '...', color: 'emerald' },
-    { label: 'Pending Fees', value: '...', color: 'amber' },
-    { label: 'Courses', value: '...', color: 'violet' },
+    { label: 'Attendance', value: '...', color: 'cyan', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { label: 'CGPA', value: '...', color: 'emerald', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
+    { label: 'Pending Fees', value: '...', color: 'amber', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+    { label: 'Courses', value: '...', color: 'violet', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
   ]);
   const [seeding, setSeeding] = useState(false);
   const [seedMessage, setSeedMessage] = useState({ type: '', text: '' });
@@ -25,7 +25,6 @@ function DashboardHome() {
         const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
         const studentId = storedAuth.studentId;
 
-        // Fetch all in parallel for speed
         const [att, marks, fees, courses] = await Promise.all([
           getAttendanceForStudent(studentId),
           getMarksForStudent(studentId),
@@ -33,7 +32,6 @@ function DashboardHome() {
           getCoursesForStudent()
         ]);
 
-        // Calculate CGPA (simple avg of semester percentages / 10)
         let cgpa = '0.0';
         if (marks.semesters && marks.semesters.length > 0) {
           const totalPerc = marks.semesters.reduce((sum, s) => sum + s.percentage, 0);
@@ -49,10 +47,10 @@ function DashboardHome() {
         };
 
         setStats([
-          { label: 'Attendance', value: `${att.overall?.percentage || 0}%`, color: 'cyan' },
-          { label: 'CGPA', value: cgpa, color: 'emerald' },
-          { label: 'Pending Fees', value: formatCurrency(fees.summary?.pendingAmount || 0), color: 'amber' },
-          { label: 'Courses', value: String(courses.totalCourses || 0), color: 'violet' },
+          { label: 'Attendance', value: `${att.overall?.percentage || 0}%`, color: 'cyan', icon: 'M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z' },
+          { label: 'CGPA', value: cgpa, color: 'emerald', icon: 'M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253' },
+          { label: 'Pending Fees', value: formatCurrency(fees.summary?.pendingAmount || 0), color: 'amber', icon: 'M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z' },
+          { label: 'Courses', value: String(courses.totalCourses || 0), color: 'violet', icon: 'M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10' },
         ]);
       } catch (err) {
         console.error('Summary fetch error:', err);
@@ -67,7 +65,6 @@ function DashboardHome() {
     try {
       const result = await seedAPI.seedData();
       setSeedMessage({ type: 'success', text: `${result.message} - Attendance: ${result.data.attendance}, Marks: ${result.data.marks}, Fees: ${result.data.fees}, Courses: ${result.data.courses}, Timetable: ${result.data.timetable}` });
-      // Refresh after seeding
       window.location.reload();
     } catch (err) {
       setSeedMessage({ type: 'error', text: err.message });
@@ -77,36 +74,54 @@ function DashboardHome() {
   };
 
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div className="space-y-8 animate-fade-in">
+      <div className="relative overflow-hidden bg-gradient-to-r from-indigo-600 to-blue-600 rounded-2xl p-8 shadow-2xl shadow-indigo-500/20">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div>
-            <h2 className="text-xl font-semibold text-white mb-2">Welcome back, Student!</h2>
-            <p className="text-slate-400">Here's an overview of your academic progress.</p>
+            <h2 className="text-3xl font-bold text-white mb-2 tracking-tight">Welcome back, Student!</h2>
+            <p className="text-indigo-100 text-lg">Here's your academic progress overview for this semester.</p>
           </div>
           <button
             onClick={handleSeedData}
             disabled={seeding}
-            className="px-4 py-2 bg-amber-600 hover:bg-amber-500 disabled:bg-amber-600/50 text-white text-sm font-medium rounded-lg transition-colors whitespace-nowrap"
+            className="px-6 py-3 bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-sm disabled:opacity-50 text-white text-sm font-semibold rounded-xl transition-all duration-200 whitespace-nowrap shadow-lg"
           >
-            {seeding ? 'Seeding...' : '🌱 Seed Demo Data'}
+            {seeding ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                Seeding...
+              </span>
+            ) : '🌱 Seed Demo Data'}
           </button>
         </div>
         {seedMessage.text && (
-          <div className={`mt-4 p-3 rounded-lg text-sm ${seedMessage.type === 'success'
-            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-            : 'bg-red-500/10 border border-red-500/20 text-red-400'
+          <div className={`mt-6 p-4 rounded-xl text-sm font-medium border ${seedMessage.type === 'success'
+            ? 'bg-emerald-500/20 border-emerald-500/30 text-emerald-100'
+            : 'bg-red-500/20 border-red-500/30 text-red-100'
             }`}>
             {seedMessage.text}
           </div>
         )}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat) => (
-          <div key={stat.label} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <p className="text-slate-400 text-sm">{stat.label}</p>
-            <p className={`text-2xl font-bold text-${stat.color}-400 mt-1`}>{stat.value}</p>
+          <div key={stat.label} className="group bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-500/30">
+            <div className="flex items-start justify-between mb-4">
+              <div className={`p-3 rounded-xl bg-slate-800 border border-slate-700 group-hover:bg-${stat.color}-500/20 group-hover:border-${stat.color}-500/30 transition-colors`}>
+                <svg className={`w-6 h-6 text-slate-400 group-hover:text-${stat.color}-400 transition-colors`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={stat.icon} />
+                </svg>
+              </div>
+              <span className={`text-xs font-bold px-2 py-1 rounded-lg bg-slate-800 text-slate-400 border border-slate-700 group-hover:text-${stat.color}-400 group-hover:border-${stat.color}-500/30 transition-colors`}>
+                Latest
+              </span>
+            </div>
+            <div>
+              <p className="text-slate-400 text-sm font-medium">{stat.label}</p>
+              <p className="text-3xl font-bold text-white mt-1 tracking-tight">{stat.value}</p>
+            </div>
           </div>
         ))}
       </div>
@@ -124,11 +139,8 @@ function AttendancePage() {
       try {
         const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
         const studentId = storedAuth.studentId;
-
-        // Note: The API primarily uses the token, but we pass studentId if needed
         const data = await getAttendanceForStudent(studentId);
 
-        // Ensure data structure is valid
         if (!data || !data.subjects) {
           setAttendance({ subjects: [], overall: { attendedClasses: 0, totalClasses: 0, percentage: 0 } });
         } else {
@@ -144,9 +156,9 @@ function AttendancePage() {
   }, []);
 
   const getProgressColor = (percentage) => {
-    if (percentage >= 75) return 'bg-emerald-500';
-    if (percentage >= 60) return 'bg-amber-500';
-    return 'bg-red-500';
+    if (percentage >= 75) return 'from-emerald-500 to-teal-400 shadow-emerald-500/20';
+    if (percentage >= 60) return 'from-amber-500 to-orange-400 shadow-amber-500/20';
+    return 'from-red-500 to-rose-400 shadow-red-500/20';
   };
 
   const getTextColor = (percentage) => {
@@ -157,78 +169,97 @@ function AttendancePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
+      <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 text-red-400 flex items-center gap-3">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
         {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Overall Summary Card */}
       {attendance.overall && (
-        <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-6">
-          <div className="flex items-center justify-between mb-4">
+        <div className="relative overflow-hidden bg-gradient-to-br from-indigo-900 via-slate-900 to-slate-900 border border-indigo-500/30 rounded-2xl p-8 shadow-2xl">
+          <div className="grid md:grid-cols-2 gap-8 items-center">
             <div>
-              <h2 className="text-xl font-semibold text-white">Overall Attendance</h2>
-              <p className="text-slate-400 text-sm mt-1">
-                {attendance.overall.attendedClasses} of {attendance.overall.totalClasses} classes attended
+              <h2 className="text-2xl font-bold text-white mb-2">Overall Attendance</h2>
+              <p className="text-slate-400">
+                You have attended <span className="text-white font-semibold">{attendance.overall.attendedClasses}</span> out of <span className="text-white font-semibold">{attendance.overall.totalClasses}</span> total classes.
               </p>
+
+              {attendance.overall.percentage < 75 && (
+                <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-sm font-medium">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Attendance below 75% - Improvement needed
+                </div>
+              )}
             </div>
-            <div className={`text-4xl font-bold ${getTextColor(attendance.overall.percentage)}`}>
-              {attendance.overall.percentage}%
+
+            <div className="flex flex-col gap-4">
+              <div className="flex justify-between items-end">
+                <span className="text-sm font-medium text-slate-400">Progress</span>
+                <span className={`text-4xl font-bold ${getTextColor(attendance.overall.percentage)}`}>
+                  {attendance.overall.percentage}%
+                </span>
+              </div>
+              <div className="h-4 bg-slate-800 rounded-full overflow-hidden border border-slate-700">
+                <div
+                  className={`h-full bg-gradient-to-r ${getProgressColor(attendance.overall.percentage)} transition-all duration-1000 ease-out`}
+                  style={{ width: `${attendance.overall.percentage}%` }}
+                />
+              </div>
             </div>
           </div>
-          <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full ${getProgressColor(attendance.overall.percentage)} transition-all duration-500`}
-              style={{ width: `${attendance.overall.percentage}%` }}
-            />
-          </div>
-          {attendance.overall.percentage < 75 && (
-            <p className="text-amber-400 text-sm mt-3 flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-              Attendance below 75% - Improvement needed
-            </p>
-          )}
         </div>
       )}
 
       {/* Subject-wise Attendance */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-5">Subject-wise Attendance</h3>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8">
+        <h3 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <span className="w-1 h-6 rounded-full bg-indigo-500"></span>
+          Subject-wise Breakdown
+        </h3>
 
         {!attendance.subjects || attendance.subjects.length === 0 ? (
-          <p className="text-slate-400 text-center py-8">No attendance records found.</p>
+          <p className="text-slate-400 text-center py-12 bg-slate-800/50 rounded-xl border border-dashed border-slate-700">
+            No attendance records to display.
+          </p>
         ) : (
-          <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {attendance.subjects.map((subject, index) => (
-              <div key={index} className="bg-slate-900/50 rounded-lg p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-white font-medium">{subject.subject}</span>
-                  <span className={`font-semibold ${getTextColor(subject.percentage)}`}>
+              <div key={index} className="group bg-slate-900/80 border border-slate-800 rounded-xl p-5 hover:border-indigo-500/30 hover:shadow-lg hover:shadow-indigo-500/10 transition-all duration-300">
+                <div className="flex justify-between items-start mb-4">
+                  <h4 className="text-white font-semibold line-clamp-2 pr-2 h-12 flex items-center">{subject.subject}</h4>
+                  <div className={`text-lg font-bold px-3 py-1 rounded-lg bg-slate-800 border border-slate-700 ${getTextColor(subject.percentage)}`}>
                     {subject.percentage}%
-                  </span>
+                  </div>
                 </div>
-                <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full ${getProgressColor(subject.percentage)} transition-all duration-500`}
-                    style={{ width: `${subject.percentage}%` }}
-                  />
+
+                <div className="space-y-3">
+                  <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                    <div
+                      className={`h-full bg-gradient-to-r ${getProgressColor(subject.percentage)} shadow-none transition-all duration-700`}
+                      style={{ width: `${subject.percentage}%` }}
+                    />
+                  </div>
+                  <div className="flex justify-between text-xs text-slate-400 font-medium">
+                    <span>Attended: {subject.attendedClasses}</span>
+                    <span>Total: {subject.totalClasses}</span>
+                  </div>
                 </div>
-                <p className="text-slate-500 text-xs mt-2">
-                  {subject.attendedClasses} / {subject.totalClasses} classes
-                </p>
               </div>
             ))}
           </div>
@@ -268,104 +299,117 @@ function MarksPage() {
   }, []);
 
   const getGradeColor = (grade) => {
-    if (!grade) return 'text-slate-400';
-    // const g = grade.toUpperCase(); // grade might be number or string? Marks usually 'A' 'B'
-    // Let's assume string
+    if (!grade) return 'text-slate-500';
     const g = String(grade).toUpperCase();
-    if (g.startsWith('A') || g === 'O') return 'text-emerald-400';
-    if (g.startsWith('B')) return 'text-cyan-400';
-    if (g.startsWith('C')) return 'text-amber-400';
-    return 'text-red-400';
+    if (g.startsWith('A') || g === 'O') return 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20';
+    if (g.startsWith('B')) return 'text-cyan-400 bg-cyan-500/10 border-cyan-500/20';
+    if (g.startsWith('C')) return 'text-amber-400 bg-amber-500/10 border-amber-500/20';
+    return 'text-red-400 bg-red-500/10 border-red-500/20';
   };
 
   const currentSemester = marksData.semesters.find(s => s.semester === selectedSemester);
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
+      <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 text-red-400 flex items-center gap-3">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
         {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Semester Selector */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h2 className="text-xl font-semibold text-white">Academic Marks</h2>
-            <p className="text-slate-400 text-sm mt-1">View your semester-wise performance</p>
+            <h2 className="text-xl font-bold text-white">Academic Performance</h2>
+            <p className="text-slate-400 text-sm mt-1">Select a semester to view detailed marksheet.</p>
           </div>
 
           {marksData.semesters.length > 0 && (
-            <select
-              value={selectedSemester || ''}
-              onChange={(e) => setSelectedSemester(Number(e.target.value))}
-              className="px-4 py-2 bg-slate-900 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-            >
-              {marksData.semesters.map((sem) => (
-                <option key={sem.semester} value={sem.semester}>
-                  Semester {sem.semester}
-                </option>
-              ))}
-            </select>
+            <div className="relative">
+              <select
+                value={selectedSemester || ''}
+                onChange={(e) => setSelectedSemester(Number(e.target.value))}
+                className="appearance-none pl-4 pr-10 py-2.5 bg-slate-900 border border-slate-700 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent min-w-[200px]"
+              >
+                {marksData.semesters.map((sem) => (
+                  <option key={sem.semester} value={sem.semester}>
+                    Semester {sem.semester}
+                  </option>
+                ))}
+              </select>
+              <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+              </div>
+            </div>
           )}
         </div>
       </div>
 
       {/* Marks Table */}
       {!marksData.semesters || marksData.semesters.length === 0 ? (
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
+        <div className="bg-slate-800/50 rounded-2xl p-12 text-center border border-dashed border-slate-700">
           <p className="text-slate-400">No marks records found.</p>
         </div>
       ) : currentSemester ? (
         <>
           {/* Summary Card */}
-          <div className="bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/30 rounded-xl p-6">
-            <div className="flex items-center justify-between">
+          <div className="relative overflow-hidden bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-8 shadow-2xl shadow-violet-500/20">
+            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+            <div className="relative z-10 flex items-center justify-between">
               <div>
-                <p className="text-slate-400 text-sm">Semester {currentSemester.semester} Performance</p>
-                <p className="text-white mt-1">
-                  {currentSemester.totalMarks} / {currentSemester.maxMarks} marks
+                <p className="text-indigo-100 font-medium mb-1">Semester {currentSemester.semester} Result</p>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-4xl font-bold text-white">{currentSemester.percentage}%</h3>
+                  <span className="text-indigo-200 text-sm">Overall</span>
+                </div>
+                <p className="text-indigo-100/80 text-sm mt-2">
+                  Total Marks: <span className="font-semibold text-white">{currentSemester.totalMarks}</span> / {currentSemester.maxMarks}
                 </p>
               </div>
-              <div className="text-4xl font-bold text-violet-400">
-                {currentSemester.percentage}%
+              <div className="hidden sm:block">
+                <div className="w-20 h-20 rounded-full bg-white/10 flex items-center justify-center border border-white/20 backdrop-blur-md">
+                  <svg className="w-10 h-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                </div>
               </div>
             </div>
           </div>
 
           {/* Table */}
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl overflow-hidden">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl overflow-hidden shadow-lg">
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-slate-700">
-                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Subject</th>
-                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Internal</th>
-                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">External</th>
-                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Total</th>
-                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Grade</th>
+                  <tr className="bg-slate-900/50 border-b border-slate-700/50">
+                    <th className="text-left px-8 py-5 text-slate-400 font-semibold text-xs uppercase tracking-wider">Subject</th>
+                    <th className="text-left px-8 py-5 text-slate-400 font-semibold text-xs uppercase tracking-wider">Internal</th>
+                    <th className="text-left px-8 py-5 text-slate-400 font-semibold text-xs uppercase tracking-wider">External</th>
+                    <th className="text-left px-8 py-5 text-slate-400 font-semibold text-xs uppercase tracking-wider">Total</th>
+                    <th className="text-left px-8 py-5 text-slate-400 font-semibold text-xs uppercase tracking-wider">Grade</th>
                   </tr>
                 </thead>
-                <tbody>
+                <tbody className="divide-y divide-slate-700/50">
                   {currentSemester.subjects.map((subject, index) => (
-                    <tr key={index} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
-                      <td className="px-6 py-4 text-white font-medium">{subject.subject}</td>
-                      <td className="px-6 py-4 text-left text-slate-300">{subject.internalMarks}</td>
-                      <td className="px-6 py-4 text-left text-slate-300">{subject.externalMarks}</td>
-                      <td className="px-6 py-4 text-left text-white font-semibold">{subject.total}</td>
-                      <td className="px-6 py-4 text-left">
-                        <span className={`font-bold ${getGradeColor(subject.grade)}`}>
+                    <tr key={index} className="hover:bg-slate-700/30 transition-colors group">
+                      <td className="px-8 py-5 text-white font-medium">{subject.subject}</td>
+                      <td className="px-8 py-5 text-slate-300">{subject.internalMarks}</td>
+                      <td className="px-8 py-5 text-slate-300">{subject.externalMarks}</td>
+                      <td className="px-8 py-5 text-white font-semibold">{subject.total}</td>
+                      <td className="px-8 py-5">
+                        <span className={`px-3 py-1 rounded-lg text-xs font-bold border ${getGradeColor(subject.grade)}`}>
                           {subject.grade || '-'}
                         </span>
                       </td>
@@ -422,74 +466,99 @@ function FeesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
+      <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 text-red-400 flex items-center gap-3">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
         {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Summary Cards */}
       {feesData.summary && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-            <p className="text-slate-400 text-sm">Total Fees</p>
-            <p className="text-2xl font-bold text-white mt-1">{formatAmount(feesData.summary.totalAmount)}</p>
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg className="w-24 h-24 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" /></svg>
+            </div>
+            <p className="text-slate-400 text-sm font-medium uppercase tracking-wide">Total Fees</p>
+            <p className="text-3xl font-bold text-white mt-2">{formatAmount(feesData.summary.totalAmount)}</p>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-5">
-            <p className="text-emerald-400 text-sm">Paid</p>
-            <p className="text-2xl font-bold text-emerald-400 mt-1">{formatAmount(feesData.summary.paidAmount)}</p>
+
+          <div className="bg-emerald-900/20 backdrop-blur-sm border border-emerald-500/20 rounded-2xl p-6 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg className="w-24 h-24 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <p className="text-emerald-400 text-sm font-medium uppercase tracking-wide">Paid Amount</p>
+            <p className="text-3xl font-bold text-white mt-2">{formatAmount(feesData.summary.paidAmount)}</p>
           </div>
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-5">
-            <p className="text-red-400 text-sm">Pending</p>
-            <p className="text-2xl font-bold text-red-400 mt-1">{formatAmount(feesData.summary.pendingAmount)}</p>
+
+          <div className="bg-amber-900/20 backdrop-blur-sm border border-amber-500/20 rounded-2xl p-6 relative overflow-hidden group">
+            <div className="absolute right-0 top-0 p-4 opacity-10 group-hover:opacity-20 transition-opacity">
+              <svg className="w-24 h-24 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            </div>
+            <p className="text-amber-400 text-sm font-medium uppercase tracking-wide">Pending Due</p>
+            <p className="text-3xl font-bold text-white mt-2">{formatAmount(feesData.summary.pendingAmount)}</p>
           </div>
         </div>
       )}
 
       {/* Fees List */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-white mb-5">Semester-wise Fees</h2>
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8">
+        <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+          <span className="w-1 h-6 rounded-full bg-indigo-500"></span>
+          Payment History
+        </h2>
 
         {feesData.fees.length === 0 ? (
-          <p className="text-slate-400 text-center py-8">No fees records found.</p>
+          <p className="text-slate-400 text-center py-12 bg-slate-800/50 rounded-xl border border-dashed border-slate-700">No fees records found.</p>
         ) : (
           <div className="space-y-4">
             {feesData.fees.map((fee) => (
               <div
                 key={fee.id}
-                className={`bg-slate-900/50 rounded-lg p-5 border-l-4 ${fee.status === 'Paid' ? 'border-emerald-500' : 'border-red-500'
+                className={`bg-slate-900/50 rounded-xl p-6 border border-slate-800 transition-all duration-300 hover:shadow-lg hover:border-slate-700 flex flex-col md:flex-row md:items-center justify-between gap-4 group ${fee.status === 'Paid' ? 'hover:shadow-emerald-500/5' : 'hover:shadow-red-500/5'
                   }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-start gap-4">
+                  <div className={`w-12 h-12 rounded-full flex items-center justify-center shrikh-0 ${fee.status === 'Paid' ? 'bg-emerald-500/10 text-emerald-400' : 'bg-red-500/10 text-red-400'
+                    }`}>
+                    {fee.status === 'Paid' ? (
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                    ) : (
+                      <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    )}
+                  </div>
                   <div>
                     <h3 className="text-white font-semibold text-lg">Semester {fee.semester}</h3>
-                    <p className="text-slate-400 text-sm mt-1">
-                      Due: {formatDate(fee.dueDate)}
+                    <p className="text-slate-400 text-sm mt-0.5">
+                      Due Date: <span className="text-slate-300">{formatDate(fee.dueDate)}</span>
                       {isOverdue(fee.dueDate, fee.status) && (
-                        <span className="text-red-400 ml-2">(Overdue)</span>
+                        <span className="text-red-400 ml-2 font-medium bg-red-500/10 px-2 py-0.5 rounded text-xs animate-pulse">Overdue</span>
                       )}
                     </p>
                   </div>
+                </div>
 
-                  <div className="flex items-center gap-4">
-                    <span className="text-white font-bold text-xl">{formatAmount(fee.amount)}</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${fee.status === 'Paid'
-                      ? 'bg-emerald-500/20 text-emerald-400'
-                      : 'bg-red-500/20 text-red-400'
-                      }`}>
-                      {fee.status}
-                    </span>
-                  </div>
+                <div className="flex items-center justify-between md:justify-end gap-6 pl-16 md:pl-0">
+                  <span className="text-2xl font-bold text-white tracking-tight">{formatAmount(fee.amount)}</span>
+                  <span className={`px-4 py-1.5 rounded-full text-sm font-bold border ${fee.status === 'Paid'
+                    ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                    : 'bg-red-500/10 border-red-500/20 text-red-400'
+                    }`}>
+                    {fee.status}
+                  </span>
                 </div>
               </div>
             ))}
@@ -521,65 +590,82 @@ function CoursesPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
+      <div className="bg-red-500/10 border border-red-500/20 rounded-2xl p-6 text-red-400 flex items-center gap-3">
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
         {error}
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-white mb-2">Academic Courses</h2>
-        <p className="text-slate-400 text-sm">Explore the available courses in your department.</p>
+    <div className="space-y-8 animate-fade-in">
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 relative overflow-hidden">
+        <div className="relative z-10">
+          <h2 className="text-2xl font-bold text-white mb-2">Academic Courses</h2>
+          <p className="text-slate-400">Explore the curriculum and details of your enrolled courses.</p>
+        </div>
+        <div className="absolute right-0 top-0 w-64 h-64 bg-indigo-500/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
         {coursesData.courses.map((course) => (
           <div
             key={course._id}
-            className="group block bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.03] hover:bg-slate-800/70 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10 cursor-default"
+            className="group relative bg-slate-800/40 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.03] hover:bg-slate-800/80 hover:border-indigo-500/30 hover:shadow-2xl hover:shadow-indigo-500/10 cursor-default"
           >
-            <div className="flex justify-between items-start mb-4">
-              <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-xs font-bold rounded-lg border border-cyan-500/20">
+            <div className="flex justify-between items-start mb-6">
+              <span className="px-3 py-1 bg-indigo-500/10 text-indigo-400 text-xs font-bold rounded-lg border border-indigo-500/20 uppercase tracking-wider">
                 {course.courseId}
               </span>
-              <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-slate-400 group-hover:text-cyan-400 transition-colors">
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-400 group-hover:text-indigo-400 group-hover:border-indigo-500/30 transition-all duration-300 shadow-md">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                 </svg>
               </div>
             </div>
 
-            <h3 className="text-lg font-bold text-white mb-2 group-hover:text-cyan-300 transition-colors">
+            <h3 className="text-xl font-bold text-white mb-2 group-hover:text-indigo-300 transition-colors line-clamp-1">
               {course.courseName}
             </h3>
 
-            <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-              </svg>
-              <span>{course.facultyName}</span>
+            <div className="flex items-center gap-2 text-slate-400 text-sm mb-6">
+              <div className="p-1 rounded bg-slate-800">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                </svg>
+              </div>
+              <span className="font-medium">{course.facultyName}</span>
             </div>
 
-            {course.description && (
-              <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 italic">
-                {course.description}
-              </p>
-            )}
+            <div className="border-t border-slate-700/50 pt-4 mt-auto">
+              {course.description ? (
+                <p className="text-slate-500 text-sm leading-relaxed line-clamp-2 italic">
+                  "{course.description}"
+                </p>
+              ) : (
+                <p className="text-slate-600 text-sm italic">No description available.</p>
+              )}
+            </div>
+
+            <div className="absolute inset-x-0 bottom-0 h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
           </div>
         ))}
         {coursesData.courses.length === 0 && (
-          <div className="col-span-full py-12 text-center text-slate-500">
-            No courses available at the moment.
+          <div className="col-span-full py-16 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-slate-800 mb-4">
+              <svg className="w-8 h-8 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" /></svg>
+            </div>
+            <p className="text-slate-500 text-lg">No courses available at the moment.</p>
           </div>
         )}
       </div>
@@ -623,7 +709,6 @@ function TimetablePage() {
       'bg-amber-500/20 border-amber-500/50 text-amber-300',
       'bg-rose-500/20 border-rose-500/50 text-rose-300',
     ];
-    // Simple hash for consistent color
     let hash = 0;
     for (let i = 0; i < courseId.length; i++) {
       hash = courseId.charCodeAt(i) + ((hash << 5) - hash);
@@ -633,90 +718,93 @@ function TimetablePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+    <div className="space-y-8 animate-fade-in">
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-white">Weekly Schedule</h2>
+            <h2 className="text-xl font-bold text-white">Weekly Schedule</h2>
             <p className="text-slate-400 text-sm mt-1">Your assigned class timings and venues.</p>
           </div>
-          <span className="text-xs text-slate-500 animate-pulse">✨ Hover for details</span>
+          <span className="px-3 py-1 rounded-full bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 text-xs font-semibold animate-pulse">
+            Live Updates
+          </span>
         </div>
       </div>
 
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 overflow-x-auto shadow-2xl">
-        <div className="min-w-[800px]">
-          {/* Header */}
-          <div className="grid grid-cols-6 gap-3 mb-4">
-            <div className="p-3 text-slate-500 text-xs font-bold uppercase tracking-widest">Time</div>
-            {days.map(day => (
-              <div key={day} className="p-3 text-center text-slate-300 font-bold bg-slate-700/30 rounded-xl border border-slate-700/50">
-                {day}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-6 overflow-hidden shadow-xl">
+        <div className="overflow-x-auto pb-4 custom-scrollbar">
+          <div className="min-w-[800px]">
+            {/* Header */}
+            <div className="grid grid-cols-6 gap-4 mb-4">
+              <div className="p-4 text-slate-500 text-xs font-bold uppercase tracking-widest flex items-center justify-center">Time</div>
+              {days.map(day => (
+                <div key={day} className="p-4 text-center text-slate-300 font-bold bg-slate-900/50 rounded-xl border border-slate-800/50 shadow-sm">
+                  {day}
+                </div>
+              ))}
+            </div>
+
+            {/* Time Rows */}
+            {timeSlots.map(time => (
+              <div key={time} className="grid grid-cols-6 gap-4 mb-4">
+                <div className="p-3 text-slate-400 text-sm font-mono flex items-center justify-center bg-slate-900/30 rounded-xl border border-slate-800/30">
+                  {time}
+                </div>
+                {days.map(day => {
+                  const classInfo = getClassForSlot(day, time);
+                  return (
+                    <div key={`${day}-${time}`} className="min-h-[100px] relative group h-full">
+                      {classInfo ? (
+                        <div className={`h-full p-4 rounded-xl border transition-all duration-300 cursor-default flex flex-col justify-between ${getSubjectColor(classInfo.courseId)} hover:scale-[1.05] hover:shadow-xl hover:shadow-black/20 hover:z-50 relative group-hover:bg-opacity-30`}>
+                          <div>
+                            <p className="font-bold text-sm leading-tight mb-1">{classInfo.courseId}</p>
+                            <p className="text-xs opacity-80 line-clamp-2">{classInfo.courseName}</p>
+                          </div>
+
+                          <div className="flex justify-between items-center mt-3 pt-2 border-t border-white/10">
+                            <div className="flex items-center gap-1.5 opacity-90">
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                              <span className="text-[11px] font-semibold">{classInfo.room || 'TBA'}</span>
+                            </div>
+                          </div>
+
+                          {/* Tooltip */}
+                          <div className="absolute opacity-0 group-hover:opacity-100 transition-all duration-200 translate-y-2 group-hover:translate-y-0 bg-slate-900/95 backdrop-blur-md border border-slate-700 p-4 rounded-xl shadow-2xl w-60 -left-6 bottom-full mb-3 pointer-events-none z-[100]">
+                            <p className="text-indigo-400 text-[10px] font-bold uppercase tracking-wider mb-2">{classInfo.courseId}</p>
+                            <h4 className="text-white text-sm font-bold mb-3 leading-snug">{classInfo.courseName}</h4>
+                            <div className="space-y-2">
+                              <p className="text-slate-300 text-xs flex items-center gap-2 bg-slate-800/50 p-1.5 rounded-lg">
+                                <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_rgba(34,211,238,0.5)]"></span>
+                                Faculty: <span className="text-white ml-auto">{classInfo.facultyName}</span>
+                              </p>
+                              <p className="text-slate-300 text-xs flex items-center gap-2 bg-slate-800/50 p-1.5 rounded-lg">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.5)]"></span>
+                                Room: <span className="text-white ml-auto">{classInfo.room || 'TBA'}</span>
+                              </p>
+                            </div>
+                            <div className="absolute bottom-[-6px] left-10 w-3 h-3 bg-slate-900/95 border-r border-b border-slate-700 rotate-45"></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="h-full bg-slate-800/20 rounded-xl border border-slate-800/30 flex items-center justify-center hover:bg-slate-800/40 transition-colors">
+                          <div className="w-1.5 h-1.5 bg-slate-800/50 rounded-full"></div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             ))}
           </div>
-
-          {/* Time Rows */}
-          {timeSlots.map(time => (
-            <div key={time} className="grid grid-cols-6 gap-3 mb-3">
-              <div className="p-3 text-slate-400 text-sm font-mono flex items-center justify-center bg-slate-900/40 rounded-lg">
-                {time}
-              </div>
-              {days.map(day => {
-                const classInfo = getClassForSlot(day, time);
-                return (
-                  <div key={`${day}-${time}`} className="min-h-[85px] relative group">
-                    {classInfo ? (
-                      <div className={`h-full p-3 rounded-xl border transition-all duration-300 cursor-default flex flex-col justify-between ${getSubjectColor(classInfo.courseId)} hover:scale-[1.08] hover:shadow-2xl hover:z-50 relative`}>
-                        <div>
-                          <p className="font-bold text-[13px] leading-tight">{classInfo.courseId}</p>
-                          <p className="text-[11px] opacity-80 mt-1 line-clamp-1">{classInfo.courseName}</p>
-                        </div>
-                        <div className="flex justify-between items-center mt-2 border-t border-white/10 pt-1">
-                          <span className="text-[10px] font-medium opacity-90">{classInfo.room || 'TBA'}</span>
-                          <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                          </svg>
-                        </div>
-
-                        {/* Popover on Hover */}
-                        <div className="absolute opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 bg-slate-900 border border-slate-700 p-4 rounded-xl shadow-2xl w-56 -left-4 -top-32 pointer-events-none z-[100] backdrop-blur-md">
-                          <p className="text-cyan-400 text-[10px] font-bold uppercase tracking-wider mb-1">{classInfo.courseId}</p>
-                          <h4 className="text-white text-sm font-bold mb-2">{classInfo.courseName}</h4>
-                          <div className="space-y-1">
-                            <p className="text-slate-400 text-[11px] flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
-                              Faculty: {classInfo.facultyName}
-                            </p>
-                            <p className="text-slate-400 text-[11px] flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
-                              Room: {classInfo.room || 'TBA'}
-                            </p>
-                            <p className="text-slate-400 text-[11px] flex items-center gap-2">
-                              <span className="w-1.5 h-1.5 rounded-full bg-violet-500"></span>
-                              Time: {classInfo.time}
-                            </p>
-                          </div>
-                          <div className="absolute bottom-[-10px] left-10 w-4 h-4 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="h-full bg-slate-900/20 rounded-xl border border-slate-800/30 flex items-center justify-center group-hover:bg-slate-900/40 transition-colors">
-                        <div className="w-1 h-1 bg-slate-800 rounded-full"></div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
         </div>
       </div>
     </div>
@@ -740,16 +828,14 @@ function ProfilePage() {
     const fetchProfile = async () => {
       try {
         const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
-        const studentId = storedAuth.studentId; // Still checking this to ensure logged in context?
+        const studentId = storedAuth.studentId;
 
         // We can just rely on the token, but keeping existing checks is fine.
-
         let data;
         try {
           data = await getProfileForStudent(studentId);
         } catch (err) {
           console.warn('Failed to fetch profile:', err);
-          // If request failed, maybe show empty or error
           throw err;
         }
         setProfile(data);
@@ -775,11 +861,9 @@ function ProfilePage() {
     setSuccessMsg('');
 
     try {
-      // Validate
       if (!profile.name.trim()) throw new Error('Name is required');
       if (!profile.email.trim()) throw new Error('Email is required');
 
-      // Update
       await updateProfile(profile.studentId, {
         name: profile.name,
         email: profile.email,
@@ -796,113 +880,151 @@ function ProfilePage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin w-8 h-8 border-2 border-cyan-500 border-t-transparent rounded-full"></div>
+      <div className="flex items-center justify-center h-96">
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-4 border-slate-700 border-t-indigo-500 animate-spin"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8 animate-fade-in">
       {/* Profile Header */}
-      <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-6">
-        <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-cyan-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+      <div className="relative overflow-hidden bg-gradient-to-r from-cyan-600 to-blue-600 rounded-2xl p-8 shadow-2xl">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none"></div>
+        <div className="relative z-10 flex flex-col md:flex-row items-center gap-6">
+          <div className="w-24 h-24 bg-white/20 backdrop-blur-md rounded-full flex items-center justify-center text-white text-4xl font-bold shadow-xl border-4 border-white/10">
             {profile.name?.charAt(0).toUpperCase() || 'U'}
           </div>
-          <div>
-            <h2 className="text-xl font-semibold text-white">{profile.name || 'Student'}</h2>
-            <p className="text-slate-400">Student ID: {profile.studentId}</p>
-            <p className="text-slate-400 text-sm">Department: {profile.department || '-'}</p>
+          <div className="text-center md:text-left">
+            <h2 className="text-3xl font-bold text-white mb-1">{profile.name || 'Student'}</h2>
+            <div className="flex flex-wrap justify-center md:justify-start gap-3 mt-2">
+              <span className="px-3 py-1 rounded-lg bg-black/20 text-white/90 text-sm font-medium border border-white/10">
+                ID: {profile.studentId}
+              </span>
+              <span className="px-3 py-1 rounded-lg bg-black/20 text-white/90 text-sm font-medium border border-white/10">
+                Dept: {profile.department || '-'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Messages */}
-      {error && (
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm">
-          {error}
-        </div>
-      )}
-      {successMsg && (
-        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-emerald-400 text-sm">
-          {successMsg}
-        </div>
-      )}
-
       {/* Details Form */}
-      <form onSubmit={handleSave} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold text-white">Profile Details</h3>
-          <button
-            type="submit"
-            disabled={isSaving}
-            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 text-white text-sm font-medium rounded-lg transition-colors"
-          >
-            {isSaving ? 'Saving...' : 'Save Changes'}
-          </button>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Read-Only Fields */}
+      <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700/50 rounded-2xl p-8 relative">
+        <div className="flex items-center justify-between mb-8">
           <div>
-            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Student ID (Read-only)</label>
-            <input
-              type="text"
-              value={profile.studentId}
-              readOnly
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 cursor-not-allowed"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Department (Read-only)</label>
-            <input
-              type="text"
-              value={profile.department || 'Not Assigned'}
-              readOnly
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 cursor-not-allowed"
-            />
-          </div>
-
-          {/* Editable Fields */}
-          <div>
-            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Full Name</label>
-            <input
-              type="text"
-              name="name"
-              value={profile.name}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="Enter your name"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Email Address</label>
-            <input
-              type="email"
-              name="email"
-              value={profile.email}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="Enter your email"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Phone Number</label>
-            <input
-              type="tel"
-              name="phone"
-              value={profile.phone}
-              onChange={handleChange}
-              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
-              placeholder="Enter phone number"
-            />
+            <h3 className="text-xl font-bold text-white">Personal Information</h3>
+            <p className="text-slate-400 text-sm mt-1">Manage your personal details and contact info.</p>
           </div>
         </div>
-      </form>
+
+        {/* Messages */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 flex items-center gap-2">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            {error}
+          </div>
+        )}
+        {successMsg && (
+          <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400 flex items-center gap-2">
+            <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+            {successMsg}
+          </div>
+        )}
+
+        <form onSubmit={handleSave}>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Read-Only Fields */}
+            <div className="space-y-6">
+              <div className="group">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2 ml-1">Student ID</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={profile.studentId}
+                    readOnly
+                    className="w-full px-5 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-400 font-mono cursor-not-allowed focus:outline-none"
+                  />
+                  <div className="absolute right-4 top-3.5 text-slate-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group">
+                <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-2 ml-1">Department</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={profile.department || 'Not Assigned'}
+                    readOnly
+                    className="w-full px-5 py-3.5 bg-slate-900/50 border border-slate-700 rounded-xl text-slate-400 font-medium cursor-not-allowed focus:outline-none"
+                  />
+                  <div className="absolute right-4 top-3.5 text-slate-600">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" /></svg>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Editable Fields */}
+            <div className="space-y-6">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Full Name</label>
+                <input
+                  type="text"
+                  name="name"
+                  value={profile.name}
+                  onChange={handleChange}
+                  className="w-full px-5 py-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200"
+                  placeholder="Enter your name"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Email Address</label>
+                <input
+                  type="email"
+                  name="email"
+                  value={profile.email}
+                  onChange={handleChange}
+                  className="w-full px-5 py-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200"
+                  placeholder="Enter your email"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-widest mb-2 ml-1">Phone Number</label>
+                <input
+                  type="tel"
+                  name="phone"
+                  value={profile.phone}
+                  onChange={handleChange}
+                  className="w-full px-5 py-3.5 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500 transition-all duration-200"
+                  placeholder="Enter phone number"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 flex justify-end pt-6 border-t border-slate-700/50">
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-bold rounded-xl transition-all duration-200 shadow-lg shadow-indigo-500/25 transform hover:-translate-y-0.5 active:translate-y-0"
+            >
+              {isSaving ? (
+                <span className="flex items-center gap-2">
+                  <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                  Saving Changes...
+                </span>
+              ) : 'Save Changes'}
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   );
 }

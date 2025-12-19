@@ -91,124 +91,133 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md">
-        {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Welcome Back</h1>
-          <p className="mt-2 text-slate-400">Sign in to your account</p>
-        </div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Ambient Background Effects */}
+      <div className="absolute top-0 left-0 w-full h-full overflow-hidden z-0 pointer-events-none">
+        <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-500/10 blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-600/10 blur-[120px] animate-pulse animation-delay-2000"></div>
+      </div>
 
-        {/* Card */}
-        <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-8 shadow-xl">
+      <div className="w-full max-w-md relative z-10 animate-fade-in">
+        <div className="bg-slate-900/60 backdrop-blur-xl border border-white/10 rounded-2xl p-8 shadow-2xl relative overflow-hidden">
+          {/* Top Decorative Line */}
+          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-teal-500 via-blue-500 to-purple-500 opacity-70"></div>
+
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br from-teal-500/20 to-blue-600/20 border border-white/10 mb-4 shadow-lg backdrop-blur-md">
+              <svg className="w-8 h-8 text-teal-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+              </svg>
+            </div>
+            <h1 className="text-2xl font-bold text-white tracking-tight mb-2">
+              Sri Eshwar College Of Engineering
+            </h1>
+            <p className="text-slate-400 text-xs font-bold uppercase tracking-widest">
+              Student Portal Login
+            </p>
+          </div>
+
           {/* Error Message */}
           {message && (
-            <div className="mb-6 p-4 rounded-lg text-sm bg-red-500/10 border border-red-500/20 text-red-400">
+            <div className="mb-6 p-4 rounded-xl text-sm bg-red-500/10 border border-red-500/20 text-red-400 flex items-center gap-3">
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               {message}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Role Selection */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-3">
-                Select Role
-              </label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, role: 'student' }));
-                    setErrors(prev => ({ ...prev, studentId: '', email: '' }));
-                  }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${formData.role === 'student'
-                    ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                    }`}
-                >
-                  Student
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, role: 'admin' }));
-                    setErrors(prev => ({ ...prev, studentId: '', email: '' }));
-                  }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${formData.role === 'admin'
-                    ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                    }`}
-                >
-                  Admin
-                </button>
-              </div>
-            </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
 
-            {/* Student ID Field - Only for Students */}
-            {formData.role === 'student' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">
-                  Student ID
-                </label>
-                <input
-                  type="text"
-                  name="studentId"
-                  value={formData.studentId}
-                  onChange={handleChange}
-                  placeholder="S1001"
-                  className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.studentId ? 'border-red-500' : 'border-slate-600'
-                    }`}
-                />
-                {errors.studentId && <p className="mt-1.5 text-sm text-red-400">{errors.studentId}</p>}
-              </div>
-            )}
-
-            {/* Email */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={formData.email}
-                onChange={handleChange}
-                placeholder="john@example.com"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.email ? 'border-red-500' : 'border-slate-600'
+            {/* Role Toggle */}
+            <div className="bg-slate-950/50 p-1 rounded-xl flex border border-white/5">
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, role: 'student' }));
+                  setErrors(prev => ({ ...prev, studentId: '', email: '' }));
+                }}
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${formData.role === 'student'
+                    ? 'bg-slate-800 text-white shadow-md shadow-black/20 ring-1 ring-white/10'
+                    : 'text-slate-500 hover:text-slate-300'
                   }`}
-              />
-              {errors.email && <p className="mt-1.5 text-sm text-red-400">{errors.email}</p>}
-            </div>
-
-            {/* Password */}
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                name="password"
-                value={formData.password}
-                onChange={handleChange}
-                placeholder="••••••••"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.password ? 'border-red-500' : 'border-slate-600'
+              >
+                Student
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setFormData(prev => ({ ...prev, role: 'admin' }));
+                  setErrors(prev => ({ ...prev, studentId: '', email: '' }));
+                }}
+                className={`flex-1 py-2 rounded-lg text-sm font-semibold transition-all duration-200 ${formData.role === 'admin'
+                    ? 'bg-slate-800 text-white shadow-md shadow-black/20 ring-1 ring-white/10'
+                    : 'text-slate-500 hover:text-slate-300'
                   }`}
-              />
-              {errors.password && <p className="mt-1.5 text-sm text-red-400">{errors.password}</p>}
+              >
+                Admin
+              </button>
             </div>
 
-            {/* Forgot Password Link */}
-            <div className="text-right">
-              <a href="#" className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors">
-                Forgot password?
-              </a>
+            <div className="space-y-4">
+              {/* Student ID Field - Only for Students */}
+              {formData.role === 'student' && (
+                <div className="space-y-1">
+                  <label className="text-xs font-semibold text-slate-400 ml-1">Student ID</label>
+                  <div className="relative group">
+                    <input
+                      type="text"
+                      name="studentId"
+                      value={formData.studentId}
+                      onChange={handleChange}
+                      placeholder="S1001"
+                      className={`w-full px-4 py-3 bg-slate-950/50 border rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all ${errors.studentId ? 'border-red-500/50 focus:ring-red-500/50' : 'border-slate-800 group-hover:border-slate-700'}`}
+                    />
+                  </div>
+                  {errors.studentId && <p className="text-xs text-red-400 ml-1">{errors.studentId}</p>}
+                </div>
+              )}
+
+              {/* Email */}
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-400 ml-1">Email Address</label>
+                <div className="relative group">
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder="john@example.com"
+                    className={`w-full px-4 py-3 bg-slate-950/50 border rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all ${errors.email ? 'border-red-500/50 focus:ring-red-500/50' : 'border-slate-800 group-hover:border-slate-700'}`}
+                  />
+                </div>
+                {errors.email && <p className="text-xs text-red-400 ml-1">{errors.email}</p>}
+              </div>
+
+              {/* Password */}
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <label className="text-xs font-semibold text-slate-400 ml-1">Password</label>
+                  <a href="#" className="text-xs text-teal-400 hover:text-teal-300 transition-colors">Forgot?</a>
+                </div>
+                <div className="relative group">
+                  <input
+                    type="password"
+                    name="password"
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="••••••••"
+                    className={`w-full px-4 py-3 bg-slate-950/50 border rounded-xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-teal-500/50 focus:border-teal-500 transition-all ${errors.password ? 'border-red-500/50 focus:ring-red-500/50' : 'border-slate-800 group-hover:border-slate-700'}`}
+                  />
+                </div>
+                {errors.password && <p className="text-xs text-red-400 ml-1">{errors.password}</p>}
+              </div>
             </div>
 
             {/* Submit Button */}
             <button
               type="submit"
               disabled={loading}
-              className="w-full py-3 px-4 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors duration-200"
+              className="w-full py-3.5 px-6 bg-gradient-to-r from-teal-600 to-blue-600 hover:from-teal-500 hover:to-blue-500 text-white font-bold rounded-xl transition-all duration-300 shadow-lg shadow-teal-500/20 transform hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -226,21 +235,25 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
 
           {/* Footer - Only for Students */}
           {formData.role === 'student' && (
-            <p className="mt-6 text-center text-sm text-slate-400">
-              Don't have an account?{' '}
-              <button
-                onClick={onSwitchToSignup}
-                className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
-              >
-                Sign up
-              </button>
-            </p>
+            <div className="mt-8 text-center pt-6 border-t border-slate-800/50">
+              <p className="text-slate-400 text-sm">
+                New student?{' '}
+                <button
+                  onClick={onSwitchToSignup}
+                  className="text-teal-400 hover:text-teal-300 font-semibold transition-colors inline-flex items-center gap-1 group"
+                >
+                  Create an account
+                  <svg className="w-3 h-3 transform group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" /></svg>
+                </button>
+              </p>
+            </div>
           )}
-
-
         </div>
+
+        <p className="text-center text-slate-600 text-xs mt-6">
+          &copy; 2025 Sri Eshwar College Of Engineering. Secure Login.
+        </p>
       </div>
     </div>
   );
 }
-
