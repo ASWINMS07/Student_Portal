@@ -1,29 +1,62 @@
-import mockStudents, { mockStudents as students } from '../data/mockStudents';
+const API_URL = 'http://localhost:5000/api/profile';
 
-// Get profile information for a student by studentId.
-// This reads from the shared mock "database" so any admin updates
-// to that data are reflected automatically.
-export function getProfileForStudent(studentId) {
-  if (!studentId) {
-    throw new Error('Student ID is required to fetch profile.');
+// Get profile from backend
+export async function getProfileForStudent(studentId) {
+  // We ignore studentId because for "me" route, the token defines the user.
+  // Unless we want Admin logic here? But this function name implies getting A profile.
+  // For the context of "Resolving Student Profile Not Found", it is the student looking at their own profile.
+
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error('No authentication token found');
+
+  const response = await fetch(API_URL, {
+    headers: {
+      'Authorization': `Bearer ${token}`
+    }
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to fetch profile');
   }
 
-  const allStudents = students || mockStudents;
-  const student = allStudents.find((s) => s.studentId === studentId);
+  // Transform backend data to match frontend expectations if needed
+  return {
+    name: data.name,
+    studentId: data.studentId,
+    email: data.email,
+    phone: data.phone || '',
+    department: data.department || '', // Backend might not have department yet, send empty string
+  };
+}
 
-  if (!student) {
-    throw new Error('Student profile not found.');
+// Update student profile
+export async function updateProfile(studentId, updates) {
+  const token = localStorage.getItem('token');
+  if (!token) throw new Error('No authentication token found');
+
+  const response = await fetch(API_URL, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`
+    },
+    body: JSON.stringify(updates)
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to update profile');
   }
-
-  // Optionally merge with auth user info from localStorage
-  const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
 
   return {
-    name: student.name,
-    studentId: student.studentId,
-    email: student.email,
-    phone: student.phone || storedAuth.phone || '',
-    department: student.department || '',
+    name: data.user.name,
+    studentId: data.user.studentId,
+    email: data.user.email,
+    phone: data.user.phone || '',
+    createdAt: data.user.createdAt
   };
 }
 

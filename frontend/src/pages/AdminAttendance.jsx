@@ -1,10 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { getAttendanceRecordsForStudent, updateAttendanceRecord } from '../services/attendanceService';
-import { getStudentUsers } from '../services/userService';
+// import { getStudentUsers } from '../services/userService'; // Removed
 
 export default function AdminAttendance() {
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [studentUsers, setStudentUsers] = useState([]);
+  const [selectedStudentId, setSelectedStudentId] = useState(''); // This will be Mongo _id
   const [studentAttendance, setStudentAttendance] = useState([]);
+
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
 
   // Simple route protection: only allow logged-in admins
   useEffect(() => {
@@ -16,53 +20,98 @@ export default function AdminAttendance() {
     }
   }, []);
 
-  // Only student users (exclude admin entries)
-  const studentUsers = useMemo(
-    () => getStudentUsers(),
-    []
-  );
+  // Fetch students on mount
+  useEffect(() => {
+    const fetchStudents = async () => {
+      // Import dynamically or assume imported. Imported at top.
+      const { getAllStudents } = await import('../services/studentService');
+      const all = await getAllStudents();
+      setStudentUsers(all);
+    };
+    fetchStudents();
+  }, []);
 
   // Initialize selected student
   useEffect(() => {
+    // If no selection and list exists, select first
     if (!selectedStudentId && studentUsers.length > 0) {
-      setSelectedStudentId(studentUsers[0].studentId);
+      setSelectedStudentId(studentUsers[0]._id);
     }
   }, [selectedStudentId, studentUsers]);
 
   // Load attendance for selected student
   useEffect(() => {
-    if (!selectedStudentId) {
-      setStudentAttendance([]);
-      return;
-    }
-
-    const records = getAttendanceRecordsForStudent(selectedStudentId);
-    setStudentAttendance(records);
+    const fetchAttendance = async () => {
+      if (!selectedStudentId) {
+        setStudentAttendance([]);
+        return;
+      }
+      const records = await getAttendanceRecordsForStudent(selectedStudentId);
+      setStudentAttendance(records);
+      setMessage('');
+    };
+    fetchAttendance();
   }, [selectedStudentId]);
 
   const handleAttendanceChange = (index, field, value) => {
-    setStudentAttendance((prev) => {
-      const updated = [...prev];
-      const record = { ...updated[index] };
+    // 1. Create a copy of the list
+    const updatedList = [...studentAttendance];
+    const record = { ...updatedList[index] };
 
-      const numericValue =
-        field === 'subject' ? value : Number.isNaN(Number(value)) ? 0 : Number(value);
+    // 2. Update the local field
+    const numericValue =
+      field === 'subject' ? value : Number.isNaN(Number(value)) ? 0 : Number(value);
+    record[field] = numericValue;
 
-      record[field] = numericValue;
+    // 3. Recalculate percentage
+    if (field === 'attendedClasses' || field === 'totalClasses') {
+      const attended = Number(record.attendedClasses) || 0;
+      const total = Number(record.totalClasses) || 0;
+      record.percentage = total > 0 ? Math.round((attended / total) * 100) : 0;
+    }
 
-      // Recalculate percentage when classes change
-      if (field === 'attendedClasses' || field === 'totalClasses') {
-        const attended = Number(record.attendedClasses) || 0;
-        const total = Number(record.totalClasses) || 0;
-        record.percentage =
-          total > 0 ? Math.round((attended / total) * 100) : 0;
-      }
+    // 4. Update state only (NO AUTO SAVE)
+    updatedList[index] = record;
+    setStudentAttendance(updatedList);
+    if (message) setMessage('');
+  };
 
-      updated[index] = record;
-      updateAttendanceRecord(record);
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage('');
+    try {
+      // Save all records
+      // In a real app we might only save modified ones, but sending all ensures consistency
+      // especially with the id loop fix.
+      const promises = studentAttendance.map(async (record, index) => {
+        // Ensure we send back the _id if we have it
+        const savedRecord = await updateAttendanceRecord({
+          ...record,
+          userId: selectedStudentId
+        });
+        return { index, savedRecord };
+      });
 
-      return updated;
-    });
+      const results = await Promise.all(promises);
+
+      // Update local state with returned _ids to prevent Duplicates on next save
+      setStudentAttendance(prev => {
+        const newList = [...prev];
+        results.forEach(({ index, savedRecord }) => {
+          if (savedRecord && savedRecord._id) {
+            newList[index] = { ...newList[index], _id: savedRecord._id };
+          }
+        });
+        return newList;
+      });
+
+      setMessage('Attendance saved successfully!');
+    } catch (e) {
+      console.error(e);
+      setMessage('Error saving attendance.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -72,8 +121,7 @@ export default function AdminAttendance() {
           <div>
             <h1 className="text-2xl font-bold">Admin Attendance Management</h1>
             <p className="text-slate-400 text-sm">
-              Edit attendance records for students. Changes are stored in-memory and
-              reflected in the student dashboard.
+              Edit attendance records for students. Click 'Save Changes' to update.
             </p>
           </div>
           <div className="flex flex-col items-start sm:items-end gap-2">
@@ -84,7 +132,7 @@ export default function AdminAttendance() {
               className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
             >
               {studentUsers.map((user) => (
-                <option key={user.studentId} value={user.studentId}>
+                <option key={user._id} value={user._id}>
                   {user.studentId} - {user.name}
                 </option>
               ))}
@@ -92,10 +140,22 @@ export default function AdminAttendance() {
           </div>
         </header>
 
+        {message && (
+          <div className={`p-4 rounded-lg text-sm ${message.includes('Error') ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            {message}
+          </div>
+        )}
+
         <section className="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden">
           {studentAttendance.length === 0 ? (
-            <div className="p-6 text-slate-400 text-sm">
-              No attendance records found for this student.
+            <div className="p-6 text-slate-400 text-sm text-center">
+              <p>No attendance records found for this student.</p>
+              <button
+                onClick={() => setStudentAttendance([{ subject: 'New Subject', attendedClasses: 0, totalClasses: 0, percentage: 0 }])}
+                className="mt-4 px-4 py-2 bg-cyan-600 rounded text-white text-sm hover:bg-cyan-500"
+              >
+                Add First Subject
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -119,13 +179,16 @@ export default function AdminAttendance() {
                 <tbody>
                   {studentAttendance.map((record, index) => (
                     <tr
-                      key={`${record.studentId}-${record.subject}`}
+                      key={`${selectedStudentId}-${index}`}
                       className="border-b border-slate-700/60"
                     >
                       <td className="px-4 py-3">
-                        <span className="text-slate-100 font-medium">
-                          {record.subject}
-                        </span>
+                        <input
+                          type="text"
+                          className="bg-transparent border-b border-slate-700 focus:border-cyan-500 outline-none text-slate-100"
+                          value={record.subject}
+                          onChange={(e) => handleAttendanceChange(index, 'subject', e.target.value)}
+                        />
                       </td>
                       <td className="px-4 py-3 text-center">
                         <input
@@ -166,6 +229,22 @@ export default function AdminAttendance() {
                   ))}
                 </tbody>
               </table>
+              <div className="p-4 border-t border-slate-700 flex justify-between items-center">
+                <button
+                  onClick={() => setStudentAttendance([...studentAttendance, { subject: 'New Subject', attendedClasses: 0, totalClasses: 0, percentage: 0 }])}
+                  className="px-4 py-2 bg-slate-700 rounded text-slate-300 text-sm hover:bg-slate-600"
+                >
+                  + Add Another Subject
+                </button>
+
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 text-white font-medium rounded-lg transition-colors"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
             </div>
           )}
         </section>

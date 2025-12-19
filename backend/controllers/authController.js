@@ -11,22 +11,29 @@ exports.register = async (req, res) => {
 
     // Validate required fields
     if (!name || !studentId || !email || !password) {
-      return res.status(400).json({ 
-        message: 'Please provide all required fields: name, studentId, email, password' 
+      return res.status(400).json({
+        message: 'Please provide all required fields: name, studentId, email, password'
       });
     }
 
     // Check if user exists
-    const existingUser = await User.findOne({ 
-      $or: [{ email }, { studentId }] 
+    const existingUser = await User.findOne({
+      $or: [{ email }, { studentId }]
     });
-    
+
     if (existingUser) {
       return res.status(400).json({ message: 'User already exists with this email or student ID' });
     }
 
-    // Create user
-    const user = new User({ name, studentId, email, password, phone });
+    // Create user - Force role to 'student' for public registration
+    const user = new User({
+      name,
+      studentId,
+      email,
+      password,
+      phone,
+      role: 'student'
+    });
     await user.save();
 
     res.status(201).json({ message: 'User registered successfully' });
@@ -58,14 +65,15 @@ exports.login = async (req, res) => {
     // Generate token
     const token = jwt.sign({ userId: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
-    res.json({ 
-      token, 
-      user: { 
-        id: user._id, 
-        name: user.name, 
+    res.json({
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
         email: user.email,
-        studentId: user.studentId
-      } 
+        studentId: user.studentId,
+        role: user.role
+      }
     });
   } catch (error) {
     res.status(500).json({ message: 'Server error', error: error.message });
@@ -84,7 +92,7 @@ exports.forgotPassword = async (req, res) => {
 
     // Generate reset token
     const resetToken = crypto.randomBytes(32).toString('hex');
-    
+
     // Log token to console (as requested)
     console.log(`Password reset token for ${email}: ${resetToken}`);
 

@@ -9,13 +9,22 @@ const timetableSchema = new mongoose.Schema({
   day: {
     type: String,
     required: true,
-    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    enum: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']
   },
   time: {
     type: String,
     required: true
   },
-  subject: {
+  courseId: {
+    type: String,
+    required: true
+  },
+  courseName: {
+    type: String,
+    required: true,
+    trim: true
+  },
+  facultyName: {
     type: String,
     required: true,
     trim: true

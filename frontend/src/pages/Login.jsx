@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { findUserByCredentials } from '../services/userService';
+import { loginUser } from '../services/userService';
 
 export default function Login({ onLoginSuccess, onSwitchToSignup }) {
   const [formData, setFormData] = useState({
@@ -45,21 +45,16 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
       const studentId = formData.studentId.trim();
 
       // Find user based on role and credentials
-      const user = findUserByCredentials({
+      // Call API login
+      const response = await loginUser({
         email,
         studentId: selectedRole === 'student' ? studentId : null,
         password,
         role: selectedRole,
       });
 
-      if (!user) {
-        if (selectedRole === 'student') {
-          setMessage('Invalid student ID, email, or password');
-        } else {
-          setMessage('Invalid email or password');
-        }
-        return;
-      }
+      const user = response.user;
+      const token = response.token;
 
       // Store auth info locally (no backend/token)
       // For students: store role, studentId, email
@@ -78,16 +73,16 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
 
       localStorage.setItem('authData', JSON.stringify(authData));
       localStorage.setItem('role', user.role);
-      localStorage.setItem('token', 'local-mock-token');
+      localStorage.setItem('token', token);
 
       onLoginSuccess?.();
 
-      // Redirect based on role
-      if (user.role === 'admin') {
-        window.location.href = '/admin/dashboard';
-      } else {
-        window.location.href = '/student/dashboard';
-      }
+      // Redirect handled by App.jsx state switch
+      // if (user.role === 'admin') {
+      //   window.location.href = '/admin/dashboard';
+      // } else {
+      //   window.location.href = '/student/dashboard';
+      // }
     } catch (err) {
       setMessage(err.message || 'Login failed. Please try again.');
     } finally {
@@ -126,11 +121,10 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
                     setFormData(prev => ({ ...prev, role: 'student' }));
                     setErrors(prev => ({ ...prev, studentId: '', email: '' }));
                   }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
-                    formData.role === 'student'
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
+                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${formData.role === 'student'
+                    ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
                 >
                   Student
                 </button>
@@ -140,11 +134,10 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
                     setFormData(prev => ({ ...prev, role: 'admin' }));
                     setErrors(prev => ({ ...prev, studentId: '', email: '' }));
                   }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
-                    formData.role === 'admin'
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
+                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${formData.role === 'admin'
+                    ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
+                    : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                    }`}
                 >
                   Admin
                 </button>
@@ -153,22 +146,21 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
 
             {/* Student ID Field - Only for Students */}
             {formData.role === 'student' && (
-            <div>
-              <label className="block text-sm font-medium text-slate-300 mb-2">
-                Student ID
-              </label>
-              <input
-                type="text"
-                name="studentId"
-                value={formData.studentId}
-                onChange={handleChange}
-                placeholder="S1001"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                  errors.studentId ? 'border-red-500' : 'border-slate-600'
-                }`}
-              />
-              {errors.studentId && <p className="mt-1.5 text-sm text-red-400">{errors.studentId}</p>}
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">
+                  Student ID
+                </label>
+                <input
+                  type="text"
+                  name="studentId"
+                  value={formData.studentId}
+                  onChange={handleChange}
+                  placeholder="S1001"
+                  className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.studentId ? 'border-red-500' : 'border-slate-600'
+                    }`}
+                />
+                {errors.studentId && <p className="mt-1.5 text-sm text-red-400">{errors.studentId}</p>}
+              </div>
             )}
 
             {/* Email */}
@@ -182,9 +174,8 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@example.com"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                  errors.email ? 'border-red-500' : 'border-slate-600'
-                }`}
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.email ? 'border-red-500' : 'border-slate-600'
+                  }`}
               />
               {errors.email && <p className="mt-1.5 text-sm text-red-400">{errors.email}</p>}
             </div>
@@ -200,9 +191,8 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                  errors.password ? 'border-red-500' : 'border-slate-600'
-                }`}
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.password ? 'border-red-500' : 'border-slate-600'
+                  }`}
               />
               {errors.password && <p className="mt-1.5 text-sm text-red-400">{errors.password}</p>}
             </div>
@@ -234,16 +224,20 @@ export default function Login({ onLoginSuccess, onSwitchToSignup }) {
             </button>
           </form>
 
-          {/* Footer */}
-          <p className="mt-6 text-center text-sm text-slate-400">
-            Don't have an account?{' '}
-            <button 
-              onClick={onSwitchToSignup}
-              className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
-            >
-              Sign up
-            </button>
-          </p>
+          {/* Footer - Only for Students */}
+          {formData.role === 'student' && (
+            <p className="mt-6 text-center text-sm text-slate-400">
+              Don't have an account?{' '}
+              <button
+                onClick={onSwitchToSignup}
+                className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
+              >
+                Sign up
+              </button>
+            </p>
+          )}
+
+
         </div>
       </div>
     </div>

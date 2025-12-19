@@ -1,37 +1,69 @@
-import { mockStudents } from '../data/mockStudents';
+const API_URL = 'http://localhost:5000/api/user/students';
 
-export function getAllStudents() {
-  return mockStudents;
-}
+// Helper to get headers with token
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+};
 
-export function getStudentById(studentId) {
-  if (!studentId) return null;
-  return mockStudents.find((s) => s.studentId === studentId) || null;
-}
-
-export function updateStudent(studentId, updates) {
-  if (!studentId) return null;
-  // Only admins may update student records from the UI
+export async function getAllStudents() {
   try {
-    const role = localStorage.getItem('role');
-    if (role !== 'admin') {
-      console.warn('Only admins can update student records.');
-      return null;
-    }
-  } catch (e) {
+    const response = await fetch(API_URL, {
+      method: 'GET',
+      headers: getHeaders()
+    });
+    if (!response.ok) throw new Error('Failed to fetch students');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching students:', error);
+    return [];
+  }
+}
+
+export async function getStudentById(studentId) {
+  try {
+    const response = await fetch(`${API_URL}/${studentId}`, {
+      headers: getHeaders()
+    });
+    if (!response.ok) throw new Error('Student not found');
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching student:', error);
     return null;
   }
+}
 
-  const index = mockStudents.findIndex((s) => s.studentId === studentId);
-  if (index === -1) return null;
+export async function updateStudent(id, updates) {
+  try {
+    // 'id' here should be the MongoDB _id
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(updates)
+    });
+    if (!response.ok) throw new Error('Failed to update student');
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating student:', error);
+    return null;
+  }
+}
 
-  const updated = {
-    ...mockStudents[index],
-    ...updates,
-  };
-
-  mockStudents[index] = updated;
-  return updated;
+export async function deleteStudent(id) {
+  try {
+    const response = await fetch(`${API_URL}/${id}`, {
+      method: 'DELETE',
+      headers: getHeaders()
+    });
+    if (!response.ok) throw new Error('Failed to delete student');
+    return true;
+  } catch (error) {
+    console.error('Error deleting student:', error);
+    return false;
+  }
 }
 
 

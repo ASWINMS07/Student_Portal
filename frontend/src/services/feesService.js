@@ -1,44 +1,51 @@
-import { fees as feesRecords } from '../data/mockAcademicData';
+const API_FEES = 'http://localhost:5000/api/fees';
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+};
 
-export function getFeesRecordsForStudent(studentId) {
-  if (!studentId) return [];
-  return feesRecords.filter((f) => f.studentId === studentId).map((r) => ({ ...r }));
-}
-
-export function updateFeeRecord(updatedRecord) {
-  if (!updatedRecord || !updatedRecord.studentId || updatedRecord.semester == null) return;
+export async function getFeesRecordsForStudent(userId) {
   try {
-    const role = localStorage.getItem('role');
-    if (role !== 'admin') {
-      console.warn('Only admins can update fee records.');
-      return;
-    }
+    const response = await fetch(`${API_FEES}?userId=${userId}`, { headers: getHeaders() });
+    if (!response.ok) return [];
+    const data = await response.json();
+    // Backend returns { fees: [], summary: {} }
+    return data.fees || [];
   } catch (e) {
-    return;
-  }
-
-  const index = feesRecords.findIndex(
-    (r) => r.studentId === updatedRecord.studentId && r.semester === updatedRecord.semester
-  );
-
-  if (index !== -1) {
-    feesRecords[index] = { ...updatedRecord };
+    return [];
   }
 }
 
-export function addFeeRecord(newRecord) {
-  if (!newRecord || !newRecord.studentId || newRecord.semester == null) return;
+export async function getStudentFees() {
   try {
-    const role = localStorage.getItem('role');
-    if (role !== 'admin') {
-      console.warn('Only admins can add fee records.');
-      return;
-    }
+    const response = await fetch(API_FEES, { headers: getHeaders() });
+    if (!response.ok) throw new Error('Failed to fetch fees');
+    return await response.json();
   } catch (e) {
-    return;
+    throw e;
   }
+}
 
-  feesRecords.push({ ...newRecord });
+export async function updateFeeRecord(updatedRecord) {
+  try {
+    const response = await fetch(API_FEES, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(updatedRecord)
+    });
+    if (!response.ok) throw new Error("Failed update");
+    return await response.json();
+  } catch (e) {
+    console.error(e);
+  }
+}
+
+export async function addFeeRecord(newRecord) {
+  // same endpoint handles upsert
+  return updateFeeRecord(newRecord);
 }
 
 export default {

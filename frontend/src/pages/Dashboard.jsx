@@ -1,15 +1,65 @@
 import { useState, useEffect } from 'react';
 import DashboardLayout from '../components/DashboardLayout';
-import { feesAPI, coursesAPI, timetableAPI, seedAPI } from '../services/api';
 import { getAttendanceForStudent } from '../services/attendanceService';
 import { getMarksForStudent } from '../services/marksService';
-import { getProfileForStudent } from '../services/profileService';
+import { getStudentFees } from '../services/feesService';
+import { getCoursesForStudent } from '../services/coursesService';
+import { getTimetableForStudent } from '../services/timetableService';
+import { getProfileForStudent, updateProfile } from '../services/profileService';
+import { seedAPI } from '../services/api';
 
 // Page Components
 function DashboardHome() {
-  const authData = JSON.parse(localStorage.getItem('authData') || '{}');
+  const [stats, setStats] = useState([
+    { label: 'Attendance', value: '...', color: 'cyan' },
+    { label: 'CGPA', value: '...', color: 'emerald' },
+    { label: 'Pending Fees', value: '...', color: 'amber' },
+    { label: 'Courses', value: '...', color: 'violet' },
+  ]);
   const [seeding, setSeeding] = useState(false);
   const [seedMessage, setSeedMessage] = useState({ type: '', text: '' });
+
+  useEffect(() => {
+    const fetchSummary = async () => {
+      try {
+        const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
+        const studentId = storedAuth.studentId;
+
+        // Fetch all in parallel for speed
+        const [att, marks, fees, courses] = await Promise.all([
+          getAttendanceForStudent(studentId),
+          getMarksForStudent(studentId),
+          getStudentFees(),
+          getCoursesForStudent()
+        ]);
+
+        // Calculate CGPA (simple avg of semester percentages / 10)
+        let cgpa = '0.0';
+        if (marks.semesters && marks.semesters.length > 0) {
+          const totalPerc = marks.semesters.reduce((sum, s) => sum + s.percentage, 0);
+          cgpa = (totalPerc / marks.semesters.length / 10).toFixed(1);
+        }
+
+        const formatCurrency = (amount) => {
+          return new Intl.NumberFormat('en-IN', {
+            style: 'currency',
+            currency: 'INR',
+            maximumFractionDigits: 0
+          }).format(amount);
+        };
+
+        setStats([
+          { label: 'Attendance', value: `${att.overall?.percentage || 0}%`, color: 'cyan' },
+          { label: 'CGPA', value: cgpa, color: 'emerald' },
+          { label: 'Pending Fees', value: formatCurrency(fees.summary?.pendingAmount || 0), color: 'amber' },
+          { label: 'Courses', value: String(courses.totalCourses || 0), color: 'violet' },
+        ]);
+      } catch (err) {
+        console.error('Summary fetch error:', err);
+      }
+    };
+    fetchSummary();
+  }, []);
 
   const handleSeedData = async () => {
     setSeeding(true);
@@ -17,13 +67,15 @@ function DashboardHome() {
     try {
       const result = await seedAPI.seedData();
       setSeedMessage({ type: 'success', text: `${result.message} - Attendance: ${result.data.attendance}, Marks: ${result.data.marks}, Fees: ${result.data.fees}, Courses: ${result.data.courses}, Timetable: ${result.data.timetable}` });
+      // Refresh after seeding
+      window.location.reload();
     } catch (err) {
       setSeedMessage({ type: 'error', text: err.message });
     } finally {
       setSeeding(false);
     }
   };
-  
+
   return (
     <div className="space-y-6">
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
@@ -41,23 +93,17 @@ function DashboardHome() {
           </button>
         </div>
         {seedMessage.text && (
-          <div className={`mt-4 p-3 rounded-lg text-sm ${
-            seedMessage.type === 'success'
-              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
-              : 'bg-red-500/10 border border-red-500/20 text-red-400'
-          }`}>
+          <div className={`mt-4 p-3 rounded-lg text-sm ${seedMessage.type === 'success'
+            ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+            : 'bg-red-500/10 border border-red-500/20 text-red-400'
+            }`}>
             {seedMessage.text}
           </div>
         )}
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        {[
-          { label: 'Attendance', value: '85%', color: 'cyan' },
-          { label: 'CGPA', value: '8.5', color: 'emerald' },
-          { label: 'Pending Fees', value: '₹0', color: 'amber' },
-          { label: 'Courses', value: '6', color: 'violet' },
-        ].map((stat) => (
+        {stats.map((stat) => (
           <div key={stat.label} className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
             <p className="text-slate-400 text-sm">{stat.label}</p>
             <p className={`text-2xl font-bold text-${stat.color}-400 mt-1`}>{stat.value}</p>
@@ -74,17 +120,20 @@ function AttendancePage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchAttendance = () => {
+    const fetchAttendance = async () => {
       try {
         const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
         const studentId = storedAuth.studentId;
 
-        if (!studentId) {
-          throw new Error('No student information found. Please log in again.');
-        }
+        // Note: The API primarily uses the token, but we pass studentId if needed
+        const data = await getAttendanceForStudent(studentId);
 
-        const data = getAttendanceForStudent(studentId);
-        setAttendance(data);
+        // Ensure data structure is valid
+        if (!data || !data.subjects) {
+          setAttendance({ subjects: [], overall: { attendedClasses: 0, totalClasses: 0, percentage: 0 } });
+        } else {
+          setAttendance(data);
+        }
       } catch (err) {
         setError(err.message || 'Failed to load attendance.');
       } finally {
@@ -96,13 +145,13 @@ function AttendancePage() {
 
   const getProgressColor = (percentage) => {
     if (percentage >= 75) return 'bg-emerald-500';
-    if (percentage >= 50) return 'bg-amber-500';
+    if (percentage >= 60) return 'bg-amber-500';
     return 'bg-red-500';
   };
 
   const getTextColor = (percentage) => {
     if (percentage >= 75) return 'text-emerald-400';
-    if (percentage >= 50) return 'text-amber-400';
+    if (percentage >= 60) return 'text-amber-400';
     return 'text-red-400';
   };
 
@@ -139,7 +188,7 @@ function AttendancePage() {
             </div>
           </div>
           <div className="h-3 bg-slate-700 rounded-full overflow-hidden">
-            <div 
+            <div
               className={`h-full ${getProgressColor(attendance.overall.percentage)} transition-all duration-500`}
               style={{ width: `${attendance.overall.percentage}%` }}
             />
@@ -158,8 +207,8 @@ function AttendancePage() {
       {/* Subject-wise Attendance */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-5">Subject-wise Attendance</h3>
-        
-        {attendance.subjects.length === 0 ? (
+
+        {!attendance.subjects || attendance.subjects.length === 0 ? (
           <p className="text-slate-400 text-center py-8">No attendance records found.</p>
         ) : (
           <div className="space-y-4">
@@ -172,7 +221,7 @@ function AttendancePage() {
                   </span>
                 </div>
                 <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
-                  <div 
+                  <div
                     className={`h-full ${getProgressColor(subject.percentage)} transition-all duration-500`}
                     style={{ width: `${subject.percentage}%` }}
                   />
@@ -196,20 +245,18 @@ function MarksPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const fetchMarks = () => {
+    const fetchMarks = async () => {
       try {
         const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
         const studentId = storedAuth.studentId;
 
-        if (!studentId) {
-          throw new Error('No student information found. Please log in again.');
-        }
-
-        const data = getMarksForStudent(studentId);
+        const data = await getMarksForStudent(studentId);
         setMarksData(data);
 
-        if (data.semesters.length > 0) {
-          setSelectedSemester(data.semesters[0].semester);
+        // Should default to most recent semester or 1st?
+        if (data.semesters && data.semesters.length > 0) {
+          // If we have semesters, show the first one or the one matching current state if applicable
+          setSelectedSemester(prev => prev || data.semesters[0].semester);
         }
       } catch (err) {
         setError(err.message || 'Failed to load marks.');
@@ -222,9 +269,12 @@ function MarksPage() {
 
   const getGradeColor = (grade) => {
     if (!grade) return 'text-slate-400';
-    if (grade.startsWith('A') || grade === 'O') return 'text-emerald-400';
-    if (grade.startsWith('B')) return 'text-cyan-400';
-    if (grade.startsWith('C')) return 'text-amber-400';
+    // const g = grade.toUpperCase(); // grade might be number or string? Marks usually 'A' 'B'
+    // Let's assume string
+    const g = String(grade).toUpperCase();
+    if (g.startsWith('A') || g === 'O') return 'text-emerald-400';
+    if (g.startsWith('B')) return 'text-cyan-400';
+    if (g.startsWith('C')) return 'text-amber-400';
     return 'text-red-400';
   };
 
@@ -255,7 +305,7 @@ function MarksPage() {
             <h2 className="text-xl font-semibold text-white">Academic Marks</h2>
             <p className="text-slate-400 text-sm mt-1">View your semester-wise performance</p>
           </div>
-          
+
           {marksData.semesters.length > 0 && (
             <select
               value={selectedSemester || ''}
@@ -273,7 +323,7 @@ function MarksPage() {
       </div>
 
       {/* Marks Table */}
-      {marksData.semesters.length === 0 ? (
+      {!marksData.semesters || marksData.semesters.length === 0 ? (
         <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-8 text-center">
           <p className="text-slate-400">No marks records found.</p>
         </div>
@@ -301,20 +351,20 @@ function MarksPage() {
                 <thead>
                   <tr className="border-b border-slate-700">
                     <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Subject</th>
-                    <th className="text-center px-6 py-4 text-slate-400 font-medium text-sm">Internal</th>
-                    <th className="text-center px-6 py-4 text-slate-400 font-medium text-sm">External</th>
-                    <th className="text-center px-6 py-4 text-slate-400 font-medium text-sm">Total</th>
-                    <th className="text-center px-6 py-4 text-slate-400 font-medium text-sm">Grade</th>
+                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Internal</th>
+                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">External</th>
+                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Total</th>
+                    <th className="text-left px-6 py-4 text-slate-400 font-medium text-sm">Grade</th>
                   </tr>
                 </thead>
                 <tbody>
                   {currentSemester.subjects.map((subject, index) => (
                     <tr key={index} className="border-b border-slate-700/50 hover:bg-slate-700/20 transition-colors">
                       <td className="px-6 py-4 text-white font-medium">{subject.subject}</td>
-                      <td className="px-6 py-4 text-center text-slate-300">{subject.internalMarks}</td>
-                      <td className="px-6 py-4 text-center text-slate-300">{subject.externalMarks}</td>
-                      <td className="px-6 py-4 text-center text-white font-semibold">{subject.total}</td>
-                      <td className="px-6 py-4 text-center">
+                      <td className="px-6 py-4 text-left text-slate-300">{subject.internalMarks}</td>
+                      <td className="px-6 py-4 text-left text-slate-300">{subject.externalMarks}</td>
+                      <td className="px-6 py-4 text-left text-white font-semibold">{subject.total}</td>
+                      <td className="px-6 py-4 text-left">
                         <span className={`font-bold ${getGradeColor(subject.grade)}`}>
                           {subject.grade || '-'}
                         </span>
@@ -339,7 +389,7 @@ function FeesPage() {
   useEffect(() => {
     const fetchFees = async () => {
       try {
-        const data = await feesAPI.getFees();
+        const data = await getStudentFees();
         setFeesData(data);
       } catch (err) {
         setError(err.message);
@@ -409,17 +459,16 @@ function FeesPage() {
       {/* Fees List */}
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
         <h2 className="text-xl font-semibold text-white mb-5">Semester-wise Fees</h2>
-        
+
         {feesData.fees.length === 0 ? (
           <p className="text-slate-400 text-center py-8">No fees records found.</p>
         ) : (
           <div className="space-y-4">
             {feesData.fees.map((fee) => (
-              <div 
-                key={fee.id} 
-                className={`bg-slate-900/50 rounded-lg p-5 border-l-4 ${
-                  fee.status === 'Paid' ? 'border-emerald-500' : 'border-red-500'
-                }`}
+              <div
+                key={fee.id}
+                className={`bg-slate-900/50 rounded-lg p-5 border-l-4 ${fee.status === 'Paid' ? 'border-emerald-500' : 'border-red-500'
+                  }`}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                   <div>
@@ -431,14 +480,13 @@ function FeesPage() {
                       )}
                     </p>
                   </div>
-                  
+
                   <div className="flex items-center gap-4">
                     <span className="text-white font-bold text-xl">{formatAmount(fee.amount)}</span>
-                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                      fee.status === 'Paid' 
-                        ? 'bg-emerald-500/20 text-emerald-400' 
-                        : 'bg-red-500/20 text-red-400'
-                    }`}>
+                    <span className={`px-3 py-1 rounded-full text-sm font-medium ${fee.status === 'Paid'
+                      ? 'bg-emerald-500/20 text-emerald-400'
+                      : 'bg-red-500/20 text-red-400'
+                      }`}>
                       {fee.status}
                     </span>
                   </div>
@@ -453,14 +501,14 @@ function FeesPage() {
 }
 
 function CoursesPage() {
-  const [coursesData, setCoursesData] = useState({ courses: [], totalCredits: 0, totalCourses: 0 });
+  const [coursesData, setCoursesData] = useState({ courses: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const data = await coursesAPI.getCourses();
+        const data = await getCoursesForStudent();
         setCoursesData(data);
       } catch (err) {
         setError(err.message);
@@ -489,50 +537,49 @@ function CoursesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Summary */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-          <p className="text-slate-400 text-sm">Total Courses</p>
-          <p className="text-3xl font-bold text-cyan-400 mt-1">{coursesData.totalCourses}</p>
-        </div>
-        <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-5">
-          <p className="text-slate-400 text-sm">Total Credits</p>
-          <p className="text-3xl font-bold text-violet-400 mt-1">{coursesData.totalCredits}</p>
-        </div>
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <h2 className="text-xl font-semibold text-white mb-2">Academic Courses</h2>
+        <p className="text-slate-400 text-sm">Explore the available courses in your department.</p>
       </div>
 
-      {/* Courses Grid */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-white mb-5">Enrolled Courses</h2>
-        
-        {coursesData.courses.length === 0 ? (
-          <p className="text-slate-400 text-center py-8">No courses enrolled.</p>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {coursesData.courses.map((course) => (
-              <div 
-                key={course.id} 
-                className="bg-slate-900/50 rounded-xl p-5 border border-slate-700/50 hover:border-slate-600 transition-colors"
-              >
-                <div className="flex items-start justify-between mb-3">
-                  <span className="px-3 py-1 bg-cyan-500/20 text-cyan-400 text-sm font-medium rounded-md">
-                    {course.courseCode}
-                  </span>
-                  <span className="px-3 py-1 bg-violet-500/20 text-violet-400 text-sm font-medium rounded-md">
-                    {course.credits} Credits
-                  </span>
-                </div>
-                
-                <h3 className="text-white font-semibold text-lg mb-3">{course.courseName}</h3>
-                
-                <div className="flex items-center gap-2 text-slate-400 text-sm">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  <span>{course.instructor || 'TBA'}</span>
-                </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {coursesData.courses.map((course) => (
+          <div
+            key={course._id}
+            className="group block bg-slate-800/40 border border-slate-700/50 rounded-2xl p-6 transition-all duration-300 hover:scale-[1.03] hover:bg-slate-800/70 hover:border-cyan-500/30 hover:shadow-2xl hover:shadow-cyan-500/10 cursor-default"
+          >
+            <div className="flex justify-between items-start mb-4">
+              <span className="px-3 py-1 bg-cyan-500/10 text-cyan-400 text-xs font-bold rounded-lg border border-cyan-500/20">
+                {course.courseId}
+              </span>
+              <div className="w-10 h-10 rounded-full bg-slate-900 flex items-center justify-center text-slate-400 group-hover:text-cyan-400 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                </svg>
               </div>
-            ))}
+            </div>
+
+            <h3 className="text-lg font-bold text-white mb-2 group-hover:text-cyan-300 transition-colors">
+              {course.courseName}
+            </h3>
+
+            <div className="flex items-center gap-2 text-slate-400 text-sm mb-4">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+              </svg>
+              <span>{course.facultyName}</span>
+            </div>
+
+            {course.description && (
+              <p className="text-slate-500 text-xs leading-relaxed line-clamp-2 italic">
+                {course.description}
+              </p>
+            )}
+          </div>
+        ))}
+        {coursesData.courses.length === 0 && (
+          <div className="col-span-full py-12 text-center text-slate-500">
+            No courses available at the moment.
           </div>
         )}
       </div>
@@ -551,7 +598,7 @@ function TimetablePage() {
   useEffect(() => {
     const fetchTimetable = async () => {
       try {
-        const data = await timetableAPI.getTimetable();
+        const data = await getTimetableForStudent();
         setTimetableData(data);
       } catch (err) {
         setError(err.message);
@@ -568,23 +615,20 @@ function TimetablePage() {
     return daySchedule.classes.find(c => c.time === time);
   };
 
-  const colors = [
-    'bg-cyan-500/20 border-cyan-500/50 text-cyan-300',
-    'bg-violet-500/20 border-violet-500/50 text-violet-300',
-    'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
-    'bg-amber-500/20 border-amber-500/50 text-amber-300',
-    'bg-rose-500/20 border-rose-500/50 text-rose-300',
-    'bg-blue-500/20 border-blue-500/50 text-blue-300',
-  ];
-
-  const subjectColors = {};
-  let colorIndex = 0;
-  const getSubjectColor = (subject) => {
-    if (!subjectColors[subject]) {
-      subjectColors[subject] = colors[colorIndex % colors.length];
-      colorIndex++;
+  const getSubjectColor = (courseId) => {
+    const colors = [
+      'bg-cyan-500/20 border-cyan-500/50 text-cyan-300',
+      'bg-emerald-500/20 border-emerald-500/50 text-emerald-300',
+      'bg-violet-500/20 border-violet-500/50 text-violet-300',
+      'bg-amber-500/20 border-amber-500/50 text-amber-300',
+      'bg-rose-500/20 border-rose-500/50 text-rose-300',
+    ];
+    // Simple hash for consistent color
+    let hash = 0;
+    for (let i = 0; i < courseId.length; i++) {
+      hash = courseId.charCodeAt(i) + ((hash << 5) - hash);
     }
-    return subjectColors[subject];
+    return colors[Math.abs(hash) % colors.length];
   };
 
   if (loading) {
@@ -595,111 +639,119 @@ function TimetablePage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
-        {error}
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h2 className="text-xl font-semibold text-white mb-5">Weekly Schedule</h2>
-        
-        {timetableData.schedule.length === 0 ? (
-          <p className="text-slate-400 text-center py-8">No timetable available.</p>
-        ) : (
-          <>
-            {/* Desktop Grid */}
-            <div className="hidden md:block overflow-x-auto">
-              <div className="min-w-[700px]">
-                {/* Header */}
-                <div className="grid grid-cols-6 gap-2 mb-2">
-                  <div className="p-3 text-slate-500 text-sm font-medium">Time</div>
-                  {days.map(day => (
-                    <div key={day} className="p-3 text-center text-slate-300 font-semibold bg-slate-700/50 rounded-lg">
-                      {day.slice(0, 3)}
-                    </div>
-                  ))}
-                </div>
-                
-                {/* Time Rows */}
-                {timeSlots.map(time => (
-                  <div key={time} className="grid grid-cols-6 gap-2 mb-2">
-                    <div className="p-3 text-slate-500 text-sm font-medium flex items-center">
-                      {time}
-                    </div>
-                    {days.map(day => {
-                      const classInfo = getClassForSlot(day, time);
-                      return (
-                        <div key={`${day}-${time}`} className="min-h-[70px]">
-                          {classInfo ? (
-                            <div className={`h-full p-3 rounded-lg border ${getSubjectColor(classInfo.subject)}`}>
-                              <p className="font-medium text-sm">{classInfo.subject}</p>
-                              {classInfo.room && (
-                                <p className="text-xs opacity-75 mt-1">{classInfo.room}</p>
-                              )}
-                            </div>
-                          ) : (
-                            <div className="h-full bg-slate-900/30 rounded-lg"></div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                ))}
-              </div>
-            </div>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-white">Weekly Schedule</h2>
+            <p className="text-slate-400 text-sm mt-1">Your assigned class timings and venues.</p>
+          </div>
+          <span className="text-xs text-slate-500 animate-pulse">✨ Hover for details</span>
+        </div>
+      </div>
 
-            {/* Mobile List */}
-            <div className="md:hidden space-y-4">
+      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6 overflow-x-auto shadow-2xl">
+        <div className="min-w-[800px]">
+          {/* Header */}
+          <div className="grid grid-cols-6 gap-3 mb-4">
+            <div className="p-3 text-slate-500 text-xs font-bold uppercase tracking-widest">Time</div>
+            {days.map(day => (
+              <div key={day} className="p-3 text-center text-slate-300 font-bold bg-slate-700/30 rounded-xl border border-slate-700/50">
+                {day}
+              </div>
+            ))}
+          </div>
+
+          {/* Time Rows */}
+          {timeSlots.map(time => (
+            <div key={time} className="grid grid-cols-6 gap-3 mb-3">
+              <div className="p-3 text-slate-400 text-sm font-mono flex items-center justify-center bg-slate-900/40 rounded-lg">
+                {time}
+              </div>
               {days.map(day => {
-                const daySchedule = timetableData.schedule.find(s => s.day === day);
-                if (!daySchedule || daySchedule.classes.length === 0) return null;
-                
+                const classInfo = getClassForSlot(day, time);
                 return (
-                  <div key={day} className="bg-slate-900/50 rounded-lg p-4">
-                    <h3 className="text-white font-semibold mb-3">{day}</h3>
-                    <div className="space-y-2">
-                      {daySchedule.classes.map((cls, idx) => (
-                        <div key={idx} className={`p-3 rounded-lg border ${getSubjectColor(cls.subject)}`}>
-                          <div className="flex justify-between items-start">
-                            <span className="font-medium">{cls.subject}</span>
-                            <span className="text-xs opacity-75">{cls.time}</span>
-                          </div>
-                          {cls.room && <p className="text-xs opacity-75 mt-1">{cls.room}</p>}
+                  <div key={`${day}-${time}`} className="min-h-[85px] relative group">
+                    {classInfo ? (
+                      <div className={`h-full p-3 rounded-xl border transition-all duration-300 cursor-default flex flex-col justify-between ${getSubjectColor(classInfo.courseId)} hover:scale-[1.08] hover:shadow-2xl hover:z-50 relative`}>
+                        <div>
+                          <p className="font-bold text-[13px] leading-tight">{classInfo.courseId}</p>
+                          <p className="text-[11px] opacity-80 mt-1 line-clamp-1">{classInfo.courseName}</p>
                         </div>
-                      ))}
-                    </div>
+                        <div className="flex justify-between items-center mt-2 border-t border-white/10 pt-1">
+                          <span className="text-[10px] font-medium opacity-90">{classInfo.room || 'TBA'}</span>
+                          <svg className="w-3 h-3 opacity-50" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                          </svg>
+                        </div>
+
+                        {/* Popover on Hover */}
+                        <div className="absolute opacity-0 group-hover:opacity-100 transition-all duration-300 scale-90 group-hover:scale-100 bg-slate-900 border border-slate-700 p-4 rounded-xl shadow-2xl w-56 -left-4 -top-32 pointer-events-none z-[100] backdrop-blur-md">
+                          <p className="text-cyan-400 text-[10px] font-bold uppercase tracking-wider mb-1">{classInfo.courseId}</p>
+                          <h4 className="text-white text-sm font-bold mb-2">{classInfo.courseName}</h4>
+                          <div className="space-y-1">
+                            <p className="text-slate-400 text-[11px] flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-cyan-500"></span>
+                              Faculty: {classInfo.facultyName}
+                            </p>
+                            <p className="text-slate-400 text-[11px] flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
+                              Room: {classInfo.room || 'TBA'}
+                            </p>
+                            <p className="text-slate-400 text-[11px] flex items-center gap-2">
+                              <span className="w-1.5 h-1.5 rounded-full bg-violet-500"></span>
+                              Time: {classInfo.time}
+                            </p>
+                          </div>
+                          <div className="absolute bottom-[-10px] left-10 w-4 h-4 bg-slate-900 border-r border-b border-slate-700 rotate-45"></div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="h-full bg-slate-900/20 rounded-xl border border-slate-800/30 flex items-center justify-center group-hover:bg-slate-900/40 transition-colors">
+                        <div className="w-1 h-1 bg-slate-800 rounded-full"></div>
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
-          </>
-        )}
+          ))}
+        </div>
       </div>
     </div>
   );
 }
 
 function ProfilePage() {
-  const [profile, setProfile] = useState(null);
+  const [profile, setProfile] = useState({
+    name: '',
+    studentId: '',
+    email: '',
+    phone: '',
+    department: ''
+  });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
-    const fetchProfile = () => {
+    const fetchProfile = async () => {
       try {
         const storedAuth = JSON.parse(localStorage.getItem('authData') || '{}');
-        const studentId = storedAuth.studentId;
+        const studentId = storedAuth.studentId; // Still checking this to ensure logged in context?
 
-        if (!studentId) {
-          throw new Error('No student information found. Please log in again.');
+        // We can just rely on the token, but keeping existing checks is fine.
+
+        let data;
+        try {
+          data = await getProfileForStudent(studentId);
+        } catch (err) {
+          console.warn('Failed to fetch profile:', err);
+          // If request failed, maybe show empty or error
+          throw err;
         }
-
-        const data = getProfileForStudent(studentId);
         setProfile(data);
       } catch (err) {
         setError(err.message || 'Failed to load profile.');
@@ -710,6 +762,38 @@ function ProfilePage() {
     fetchProfile();
   }, []);
 
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setProfile(prev => ({ ...prev, [name]: value }));
+    if (successMsg) setSuccessMsg('');
+  };
+
+  const handleSave = async (e) => {
+    e.preventDefault();
+    setIsSaving(true);
+    setError('');
+    setSuccessMsg('');
+
+    try {
+      // Validate
+      if (!profile.name.trim()) throw new Error('Name is required');
+      if (!profile.email.trim()) throw new Error('Email is required');
+
+      // Update
+      await updateProfile(profile.studentId, {
+        name: profile.name,
+        email: profile.email,
+        phone: profile.phone
+      });
+
+      setSuccessMsg('Profile updated successfully!');
+    } catch (err) {
+      setError(err.message || 'Failed to update profile');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -718,78 +802,107 @@ function ProfilePage() {
     );
   }
 
-  if (error) {
-    return (
-      <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-red-400">
-        {error}
-      </div>
-    );
-  }
-
-  if (!profile) {
-    return null;
-  }
-
   return (
     <div className="space-y-6">
       {/* Profile Header */}
       <div className="bg-gradient-to-r from-cyan-600/20 to-blue-600/20 border border-cyan-500/30 rounded-xl p-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-cyan-600 rounded-full flex items-center justify-center">
-            <span className="text-2xl font-bold text-white">
-              {profile.name?.charAt(0) || 'U'}
-            </span>
+          <div className="w-16 h-16 bg-cyan-600 rounded-full flex items-center justify-center text-white text-2xl font-bold">
+            {profile.name?.charAt(0).toUpperCase() || 'U'}
           </div>
           <div>
-            <h2 className="text-xl font-semibold text-white">{profile.name}</h2>
+            <h2 className="text-xl font-semibold text-white">{profile.name || 'Student'}</h2>
             <p className="text-slate-400">Student ID: {profile.studentId}</p>
             <p className="text-slate-400 text-sm">Department: {profile.department || '-'}</p>
           </div>
         </div>
       </div>
 
-      {/* Read-only Details */}
-      <div className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-5">Profile Details</h3>
+      {/* Messages */}
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-4 text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+      {successMsg && (
+        <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-4 text-emerald-400 text-sm">
+          {successMsg}
+        </div>
+      )}
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {/* Details Form */}
+      <form onSubmit={handleSave} className="bg-slate-800/50 border border-slate-700 rounded-xl p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-lg font-semibold text-white">Profile Details</h3>
+          <button
+            type="submit"
+            disabled={isSaving}
+            className="px-4 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 text-white text-sm font-medium rounded-lg transition-colors"
+          >
+            {isSaving ? 'Saving...' : 'Save Changes'}
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Read-Only Fields */}
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-              Name
-            </p>
-            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
-              {profile.name}
-            </p>
+            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Student ID (Read-only)</label>
+            <input
+              type="text"
+              value={profile.studentId}
+              readOnly
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 cursor-not-allowed"
+            />
           </div>
 
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-              Student ID
-            </p>
-            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
-              {profile.studentId}
-            </p>
+            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Department (Read-only)</label>
+            <input
+              type="text"
+              value={profile.department || 'Not Assigned'}
+              readOnly
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-700 rounded-lg text-slate-400 cursor-not-allowed"
+            />
+          </div>
+
+          {/* Editable Fields */}
+          <div>
+            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Full Name</label>
+            <input
+              type="text"
+              name="name"
+              value={profile.name}
+              onChange={handleChange}
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="Enter your name"
+            />
           </div>
 
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-              Email
-            </p>
-            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2 break-all">
-              {profile.email}
-            </p>
+            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Email Address</label>
+            <input
+              type="email"
+              name="email"
+              value={profile.email}
+              onChange={handleChange}
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="Enter your email"
+            />
           </div>
 
           <div>
-            <p className="text-xs text-slate-400 uppercase tracking-wide mb-1">
-              Phone
-            </p>
-            <p className="text-sm text-white bg-slate-900/40 border border-slate-700 rounded-lg px-3 py-2">
-              {profile.phone || '-'}
-            </p>
+            <label className="block text-xs text-slate-400 uppercase tracking-wide mb-2">Phone Number</label>
+            <input
+              type="tel"
+              name="phone"
+              value={profile.phone}
+              onChange={handleChange}
+              className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-cyan-500"
+              placeholder="Enter phone number"
+            />
           </div>
         </div>
-      </div>
+      </form>
     </div>
   );
 }
@@ -818,9 +931,9 @@ export default function Dashboard({ onLogout }) {
   };
 
   return (
-    <DashboardLayout 
-      activePage={activePage} 
-      onPageChange={setActivePage} 
+    <DashboardLayout
+      activePage={activePage}
+      onPageChange={setActivePage}
       onLogout={handleLogout}
     >
       {renderPage()}

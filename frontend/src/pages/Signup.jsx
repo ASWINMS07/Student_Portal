@@ -7,7 +7,6 @@ export default function Signup({ onSwitchToLogin }) {
     studentId: '',
     email: '',
     password: '',
-    confirmPassword: '',
     role: 'student',
   });
   const [errors, setErrors] = useState({});
@@ -16,21 +15,11 @@ export default function Signup({ onSwitchToLogin }) {
 
   const validate = () => {
     const newErrors = {};
-    // For student signup require name and studentId
-    if (formData.role === 'student') {
-      if (!formData.name.trim()) newErrors.name = 'Name is required';
-      if (!formData.studentId.trim()) newErrors.studentId = 'Student ID is required';
-    }
-    // Email and password are required for both roles
+    if (!formData.name.trim()) newErrors.name = 'Name is required';
+    if (!formData.studentId.trim()) newErrors.studentId = 'Student ID is required';
     if (!formData.email.trim()) newErrors.email = 'Email is required';
     if (!formData.password.trim()) newErrors.password = 'Password is required';
-    // For admin require confirm password and match
-    if (formData.role === 'admin') {
-      if (!formData.confirmPassword.trim()) newErrors.confirmPassword = 'Please confirm password';
-      if (formData.password && formData.confirmPassword && formData.password !== formData.confirmPassword) {
-        newErrors.confirmPassword = 'Passwords do not match';
-      }
-    }
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
@@ -49,11 +38,19 @@ export default function Signup({ onSwitchToLogin }) {
 
     setLoading(true);
     try {
-      // Register user (student or admin). registerStudent will add central student profile when role === 'student'.
-      registerStudent(formData);
-      // After successful signup, do not auto-login — redirect to Sign-In
-      onSwitchToLogin && onSwitchToLogin();
+      // Register student
+      await registerStudent(formData);
+
+      // Success message
+      setMessage({ type: 'success', text: 'Thank you for registering successfully. Please sign in to continue.' });
+
+      // Redirect to Login after 2 seconds
+      setTimeout(() => {
+        onSwitchToLogin && onSwitchToLogin();
+      }, 2000);
+
     } catch (error) {
+      // Handle "Account already exists" or other errors
       setMessage({ type: 'error', text: error.message || 'Failed to create account.' });
     } finally {
       setLoading(false);
@@ -65,7 +62,7 @@ export default function Signup({ onSwitchToLogin }) {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold text-white tracking-tight">Create Account</h1>
+          <h1 className="text-3xl font-bold text-white tracking-tight">Student Registration</h1>
           <p className="mt-2 text-slate-400">Join us and get started today</p>
         </div>
 
@@ -73,104 +70,46 @@ export default function Signup({ onSwitchToLogin }) {
         <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-8 shadow-xl">
           {/* Message */}
           {message.text && (
-            <div className={`mb-6 p-4 rounded-lg text-sm ${
-              message.type === 'success' 
-                ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400' 
-                : 'bg-red-500/10 border border-red-500/20 text-red-400'
-            }`}>
+            <div className={`mb-6 p-4 rounded-lg text-sm ${message.type === 'success'
+              ? 'bg-emerald-500/10 border border-emerald-500/20 text-emerald-400'
+              : 'bg-red-500/10 border border-red-500/20 text-red-400'
+              }`}>
               {message.text}
             </div>
           )}
 
           <form onSubmit={handleSubmit} className="space-y-5">
-            {/* Role Selection */}
+
+            {/* Name */}
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-3">Select Role</label>
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, role: 'student' }));
-                    setErrors({});
-                  }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
-                    formData.role === 'student'
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+              <label className="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
+              <input
+                type="text"
+                name="name"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="John Doe"
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.name ? 'border-red-500' : 'border-slate-600'
                   }`}
-                >
-                  Student
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setFormData(prev => ({ ...prev, role: 'admin' }));
-                    setErrors({});
-                  }}
-                  className={`flex-1 py-2.5 px-4 rounded-lg font-medium transition-all ${
-                    formData.role === 'admin'
-                      ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-500/30'
-                      : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
-                  }`}
-                >
-                  Admin
-                </button>
-              </div>
+              />
+              {errors.name && <p className="mt-1.5 text-sm text-red-400">{errors.name}</p>}
             </div>
 
-            {/* Student-only fields */}
-            {formData.role === 'student' && (
-              <>
-                {/* Name */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Full Name</label>
-                  <input
-                    type="text"
-                    name="name"
-                    value={formData.name}
-                    onChange={handleChange}
-                    placeholder="John Doe"
-                    className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                      errors.name ? 'border-red-500' : 'border-slate-600'
-                    }`}
-                  />
-                  {errors.name && <p className="mt-1.5 text-sm text-red-400">{errors.name}</p>}
-                </div>
-
-                {/* Student ID */}
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-2">Student ID</label>
-                  <input
-                    type="text"
-                    name="studentId"
-                    value={formData.studentId}
-                    onChange={handleChange}
-                    placeholder="S1001"
-                    className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                      errors.studentId ? 'border-red-500' : 'border-slate-600'
-                    }`}
-                  />
-                  {errors.studentId && <p className="mt-1.5 text-sm text-red-400">{errors.studentId}</p>}
-                </div>
-              </>
-            )}
-            {/* Confirm password for admin */}
-            {formData.role === 'admin' && (
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-2">Confirm Password</label>
-                <input
-                  type="password"
-                  name="confirmPassword"
-                  value={formData.confirmPassword}
-                  onChange={handleChange}
-                  placeholder="••••••••"
-                  className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                    errors.confirmPassword ? 'border-red-500' : 'border-slate-600'
+            {/* Student ID */}
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Student ID</label>
+              <input
+                type="text"
+                name="studentId"
+                value={formData.studentId}
+                onChange={handleChange}
+                placeholder="S1001"
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.studentId ? 'border-red-500' : 'border-slate-600'
                   }`}
-                />
-                {errors.confirmPassword && <p className="mt-1.5 text-sm text-red-400">{errors.confirmPassword}</p>}
-              </div>
-            )}
+              />
+              {errors.studentId && <p className="mt-1.5 text-sm text-red-400">{errors.studentId}</p>}
+            </div>
+
             {/* Email */}
             <div>
               <label className="block text-sm font-medium text-slate-300 mb-2">
@@ -182,9 +121,8 @@ export default function Signup({ onSwitchToLogin }) {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="john@example.com"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                  errors.email ? 'border-red-500' : 'border-slate-600'
-                }`}
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.email ? 'border-red-500' : 'border-slate-600'
+                  }`}
               />
               {errors.email && <p className="mt-1.5 text-sm text-red-400">{errors.email}</p>}
             </div>
@@ -200,9 +138,8 @@ export default function Signup({ onSwitchToLogin }) {
                 value={formData.password}
                 onChange={handleChange}
                 placeholder="••••••••"
-                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${
-                  errors.password ? 'border-red-500' : 'border-slate-600'
-                }`}
+                className={`w-full px-4 py-3 bg-slate-900/50 border rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent transition-all ${errors.password ? 'border-red-500' : 'border-slate-600'
+                  }`}
               />
               {errors.password && <p className="mt-1.5 text-sm text-red-400">{errors.password}</p>}
             </div>
@@ -222,7 +159,7 @@ export default function Signup({ onSwitchToLogin }) {
                   Creating account...
                 </span>
               ) : (
-                'Create Account'
+                'Register'
               )}
             </button>
           </form>
@@ -230,7 +167,7 @@ export default function Signup({ onSwitchToLogin }) {
           {/* Footer */}
           <p className="mt-6 text-center text-sm text-slate-400">
             Already have an account?{' '}
-            <button 
+            <button
               onClick={onSwitchToLogin}
               className="text-cyan-400 hover:text-cyan-300 font-medium transition-colors"
             >

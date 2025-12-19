@@ -3,6 +3,8 @@ const router = express.Router();
 const auth = require('../middleware/auth');
 const User = require('../models/User');
 
+const userController = require('../controllers/userController');
+
 // Get current user profile (protected)
 router.get('/me', auth, async (req, res) => {
   try {
@@ -15,6 +17,12 @@ router.get('/me', auth, async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 });
+
+// Admin Routes (Should ideally have middleware to check role='admin')
+router.get('/students', auth, userController.getAllStudents);
+router.get('/students/:id', auth, userController.getStudent);
+router.put('/students/:id', auth, userController.updateStudent);
+router.delete('/students/:id', auth, userController.deleteStudent);
 
 module.exports = router;
 

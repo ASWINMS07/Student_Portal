@@ -1,94 +1,149 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   getMarksForStudentAndSemester,
   getSemestersForStudent,
   updateMarkRecord,
 } from '../services/marksService';
-import { getStudentUsers } from '../services/userService';
+// import { getStudentUsers } from '../services/userService';
 
 export default function AdminMarks() {
-  const [selectedStudentId, setSelectedStudentId] = useState('');
+  const [studentUsers, setStudentUsers] = useState([]);
+  const [selectedStudentId, setSelectedStudentId] = useState(''); // Mongo _id
   const [availableSemesters, setAvailableSemesters] = useState([]);
   const [selectedSemester, setSelectedSemester] = useState('');
   const [semesterMarks, setSemesterMarks] = useState([]);
 
-  // Simple route protection: only allow logged-in admins
+  const [saving, setSaving] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // Simple route protection
   useEffect(() => {
     const token = localStorage.getItem('token');
     const role = localStorage.getItem('role');
-
     if (!token || role !== 'admin') {
       window.location.href = '/';
     }
   }, []);
 
-  const studentUsers = useMemo(() => getStudentUsers(), []);
+  // Fetch students
+  useEffect(() => {
+    const fetchStudents = async () => {
+      const { getAllStudents } = await import('../services/studentService');
+      const all = await getAllStudents();
+      setStudentUsers(all);
+    }
+    fetchStudents();
+  }, []);
 
   // Initialize student
   useEffect(() => {
     if (!selectedStudentId && studentUsers.length > 0) {
-      setSelectedStudentId(studentUsers[0].studentId);
+      setSelectedStudentId(studentUsers[0]._id);
     }
   }, [selectedStudentId, studentUsers]);
 
   // Load semesters when student changes
   useEffect(() => {
-    if (!selectedStudentId) {
-      setAvailableSemesters([]);
-      setSelectedSemester('');
-      setSemesterMarks([]);
-      return;
-    }
+    const fetchSemesters = async () => {
+      if (!selectedStudentId) {
+        setAvailableSemesters([]);
+        setSelectedSemester('');
+        setSemesterMarks([]);
+        return;
+      }
 
-    const semesters = getSemestersForStudent(selectedStudentId);
-    setAvailableSemesters(semesters);
+      const semesters = await getSemestersForStudent(selectedStudentId);
+      setAvailableSemesters(semesters);
 
-    if (semesters.length > 0) {
-      setSelectedSemester(String(semesters[0]));
-    } else {
-      setSelectedSemester('');
-      setSemesterMarks([]);
-    }
+      if (semesters.length > 0) {
+        setSelectedSemester(String(semesters[0]));
+      } else {
+        // Create default Semester 1 view if empty? Or allow user to add?
+        // Let's just default to empty and provide a way to add.
+        // Or default to '1'.
+        setSelectedSemester('1');
+      }
+    };
+    fetchSemesters();
   }, [selectedStudentId]);
 
   // Load marks when semester changes
   useEffect(() => {
-    if (!selectedStudentId || !selectedSemester) {
-      setSemesterMarks([]);
-      return;
+    const fetchMarks = async () => {
+      if (!selectedStudentId || !selectedSemester) {
+        setSemesterMarks([]);
+        return;
+      }
+      const records = await getMarksForStudentAndSemester(
+        selectedStudentId,
+        selectedSemester
+      );
+      setSemesterMarks(records);
+      setMessage('');
     }
-
-    const records = getMarksForStudentAndSemester(
-      selectedStudentId,
-      selectedSemester
-    );
-    setSemesterMarks(records);
+    fetchMarks();
   }, [selectedStudentId, selectedSemester]);
 
   const handleMarksChange = (index, field, value) => {
-    setSemesterMarks((prev) => {
-      const updated = [...prev];
-      const record = { ...updated[index] };
+    // 1. Optimistic Update (Local State Only)
+    const updated = [...semesterMarks];
+    const record = { ...updated[index] };
 
-      if (field === 'subject' || field === 'grade') {
-        record[field] = value;
-      } else {
-        const numeric = Number(value);
-        record[field] = Number.isNaN(numeric) ? 0 : numeric;
-      }
+    // 2. Update field
+    if (field === 'subject' || field === 'grade') {
+      record[field] = value;
+    } else {
+      const numeric = Number(value);
+      record[field] = Number.isNaN(numeric) ? 0 : numeric;
+    }
 
-      // Recalculate total when internal/external change
-      if (field === 'internalMarks' || field === 'externalMarks') {
-        const internal = Number(record.internalMarks) || 0;
-        const external = Number(record.externalMarks) || 0;
-        record.total = internal + external;
-      }
+    // 3. Recalculate total
+    if (field === 'internalMarks' || field === 'externalMarks') {
+      const internal = Number(record.internalMarks) || 0;
+      const external = Number(record.externalMarks) || 0;
+      record.total = internal + external;
+    }
 
-      updated[index] = record;
-      updateMarkRecord(record);
+    // 4. Update UI
+    updated[index] = record;
+    setSemesterMarks(updated);
+    if (message) setMessage('');
+  };
 
-      return updated;
-    });
+  const handleSave = async () => {
+    setSaving(true);
+    setMessage('');
+    try {
+      // Save all records
+      const promises = semesterMarks.map(async (record, index) => {
+        const savedRecord = await updateMarkRecord({
+          ...record,
+          userId: selectedStudentId,
+          semester: Number(selectedSemester)
+        });
+        return { index, savedRecord };
+      });
+
+      const results = await Promise.all(promises);
+
+      // Update IDs
+      setSemesterMarks(prev => {
+        const newList = [...prev];
+        results.forEach(({ index, savedRecord }) => {
+          if (savedRecord && savedRecord._id) {
+            newList[index] = { ...newList[index], _id: savedRecord._id };
+          }
+        });
+        return newList;
+      });
+
+      setMessage('Marks saved successfully!');
+    } catch (e) {
+      console.error(e);
+      setMessage('Error saving marks.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -98,8 +153,7 @@ export default function AdminMarks() {
           <div>
             <h1 className="text-2xl font-bold">Admin Marks Management</h1>
             <p className="text-slate-400 text-sm">
-              Adjust student marks by semester. Changes are stored in-memory and
-              used directly by the student dashboard.
+              Adjust student marks. Click 'Save Changes' to update.
             </p>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 sm:items-end">
@@ -111,7 +165,7 @@ export default function AdminMarks() {
                 className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
               >
                 {studentUsers.map((user) => (
-                  <option key={user.studentId} value={user.studentId}>
+                  <option key={user._id} value={user._id}>
                     {user.studentId} - {user.name}
                   </option>
                 ))}
@@ -120,30 +174,42 @@ export default function AdminMarks() {
 
             <div className="flex flex-col gap-1">
               <label className="text-sm text-slate-300">Select Semester</label>
-              <select
-                value={selectedSemester}
-                onChange={(e) => setSelectedSemester(e.target.value)}
-                className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
-                disabled={availableSemesters.length === 0}
-              >
-                {availableSemesters.length === 0 ? (
-                  <option value="">No semesters</option>
-                ) : (
-                  availableSemesters.map((sem) => (
-                    <option key={sem} value={String(sem)}>
-                      Semester {sem}
-                    </option>
-                  ))
-                )}
-              </select>
+              <div className="flex gap-2">
+                <select
+                  value={selectedSemester}
+                  onChange={(e) => setSelectedSemester(e.target.value)}
+                  className="px-3 py-2 bg-slate-800 border border-slate-700 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-cyan-500"
+                >
+                  <option value="1">Semester 1</option>
+                  <option value="2">Semester 2</option>
+                  <option value="3">Semester 3</option>
+                  <option value="4">Semester 4</option>
+                  <option value="5">Semester 5</option>
+                  <option value="6">Semester 6</option>
+                  <option value="7">Semester 7</option>
+                  <option value="8">Semester 8</option>
+                </select>
+              </div>
             </div>
           </div>
         </header>
 
+        {message && (
+          <div className={`p-4 rounded-lg text-sm ${message.includes('Error') ? 'bg-red-500/10 text-red-400' : 'bg-emerald-500/10 text-emerald-400'}`}>
+            {message}
+          </div>
+        )}
+
         <section className="bg-slate-800/60 border border-slate-700 rounded-xl overflow-hidden">
           {semesterMarks.length === 0 ? (
-            <div className="p-6 text-slate-400 text-sm">
-              No marks records found for this student and semester.
+            <div className="p-6 text-slate-400 text-sm text-center">
+              <p>No marks records found for this student and semester.</p>
+              <button
+                onClick={() => setSemesterMarks([{ subject: 'New Subject', internalMarks: 0, externalMarks: 0, total: 0, grade: 'F' }])}
+                className="mt-4 px-4 py-2 bg-cyan-600 rounded text-white text-sm hover:bg-cyan-500"
+              >
+                Add First Subject
+              </button>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -170,7 +236,7 @@ export default function AdminMarks() {
                 <tbody>
                   {semesterMarks.map((record, index) => (
                     <tr
-                      key={`${record.studentId}-${record.semester}-${record.subject}`}
+                      key={`${selectedStudentId}-${selectedSemester}-${index}`}
                       className="border-b border-slate-700/60"
                     >
                       <td className="px-4 py-3">
@@ -232,6 +298,22 @@ export default function AdminMarks() {
                   ))}
                 </tbody>
               </table>
+              <div className="p-4 border-t border-slate-700 flex justify-between items-center">
+                <button
+                  onClick={() => setSemesterMarks([...semesterMarks, { subject: 'New Subject', internalMarks: 0, externalMarks: 0, total: 0, grade: 'F' }])}
+                  className="px-4 py-2 bg-slate-700 rounded text-slate-300 text-sm hover:bg-slate-600"
+                >
+                  + Add Another Subject
+                </button>
+
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="px-6 py-2 bg-cyan-600 hover:bg-cyan-500 disabled:bg-cyan-600/50 text-white font-medium rounded-lg transition-colors"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
             </div>
           )}
         </section>

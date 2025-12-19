@@ -15,9 +15,9 @@ export default function AdminEditStudent({ studentId, onClose, onSaved }) {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    const loadStudent = () => {
+    const loadStudent = async () => {
       try {
-        const student = getStudentById(studentId);
+        const student = await getStudentById(studentId);
         if (!student) {
           setError('Student not found.');
           return;

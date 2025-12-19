@@ -18,6 +18,9 @@ const feesSchema = new mongoose.Schema({
     type: Date,
     required: true
   },
+  paidDate: {
+    type: Date
+  },
   status: {
     type: String,
     enum: ['Paid', 'Pending'],

@@ -1,110 +1,63 @@
-import { marks as marksRecords } from '../data/mockAcademicData';
+const API_MARKS = 'http://localhost:5000/api/marks';
+const getHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    'Content-Type': 'application/json',
+    'Authorization': `Bearer ${token}`
+  };
+};
 
 // Structured marks for student dashboard
-export function getMarksForStudent(studentId) {
-  if (!studentId) {
-    throw new Error('Student ID is required to fetch marks.');
-  }
-
-  const studentMarks = marksRecords.filter(
-    (record) => record.studentId === studentId
-  );
-
-  if (studentMarks.length === 0) {
+export async function getMarksForStudent(studentId) {
+  // studentId ignored if using req.userId in backend for student role
+  try {
+    const response = await fetch(API_MARKS, { headers: getHeaders() });
+    if (!response.ok) throw new Error("Failed to fetch marks");
+    return await response.json(); // Returns { semesters: [...] }
+  } catch (e) {
+    console.error(e);
     return { semesters: [] };
   }
-
-  const semestersMap = new Map();
-
-  studentMarks.forEach((record) => {
-    const semKey = record.semester;
-    if (!semestersMap.has(semKey)) {
-      semestersMap.set(semKey, {
-        semester: semKey,
-        subjects: [],
-        totalMarks: 0,
-        maxMarks: 0,
-      });
-    }
-    const sem = semestersMap.get(semKey);
-
-    const total = record.total;
-    const maxPerSubject = 100; // assumption for mock data
-
-    sem.subjects.push({
-      subject: record.subject,
-      internalMarks: record.internalMarks,
-      externalMarks: record.externalMarks,
-      total,
-      grade: record.grade,
-    });
-
-    sem.totalMarks += typeof total === 'number' ? total : 0;
-    sem.maxMarks += maxPerSubject;
-  });
-
-  const semesters = Array.from(semestersMap.values()).map((sem) => ({
-    ...sem,
-    percentage:
-      sem.maxMarks > 0 ? Math.round((sem.totalMarks / sem.maxMarks) * 100) : 0,
-  }));
-
-  semesters.sort((a, b) => a.semester - b.semester);
-
-  return { semesters };
 }
 
 // Admin helpers
-export function getSemestersForStudent(studentId) {
-  if (!studentId) return [];
-  const studentMarks = marksRecords.filter(
-    (record) => record.studentId === studentId
-  );
-  return Array.from(new Set(studentMarks.map((rec) => rec.semester))).sort(
-    (a, b) => a - b
-  );
-}
 
-export function getMarksForStudentAndSemester(studentId, semester) {
-  if (!studentId || !semester) return [];
-  return marksRecords
-    .filter(
-      (record) =>
-        record.studentId === studentId && record.semester === Number(semester)
-    )
-    .map((record) => ({ ...record }));
-}
-
-export function updateMarkRecord(updatedRecord) {
-  if (
-    !updatedRecord ||
-    !updatedRecord.studentId ||
-    updatedRecord.semester == null ||
-    !updatedRecord.subject
-  ) {
-    return;
-  }
-
-  // Only admins may update marks in the mock data
+// Helper to fetch all marks for a student (using Admin query param)
+async function fetchStudentMarks(userId) {
   try {
-    const role = localStorage.getItem('role');
-    if (role !== 'admin') {
-      console.warn('Only admins can update mark records.');
-      return;
-    }
+    const response = await fetch(`${API_MARKS}?userId=${userId}`, { headers: getHeaders() });
+    if (!response.ok) return { semesters: [] };
+    return await response.json();
   } catch (e) {
-    return;
+    return { semesters: [] };
   }
+}
 
-  const index = marksRecords.findIndex(
-    (record) =>
-      record.studentId === updatedRecord.studentId &&
-      record.semester === updatedRecord.semester &&
-      record.subject === updatedRecord.subject
-  );
+export async function getSemestersForStudent(userId) {
+  const data = await fetchStudentMarks(userId);
+  if (!data.semesters) return [];
+  return data.semesters.map(s => s.semester);
+}
 
-  if (index !== -1) {
-    marksRecords[index] = { ...updatedRecord };
+export async function getMarksForStudentAndSemester(userId, semester) {
+  const data = await fetchStudentMarks(userId);
+  if (!data.semesters) return [];
+  const semData = data.semesters.find(s => String(s.semester) === String(semester));
+  return semData ? semData.subjects : [];
+}
+
+export async function updateMarkRecord(updatedRecord) {
+  // updatedRecord: { userId, semester, subject, internalMarks, ... }
+  try {
+    const response = await fetch(API_MARKS, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(updatedRecord)
+    });
+    if (!response.ok) throw new Error("Failed update");
+    return await response.json();
+  } catch (e) {
+    console.error(e);
   }
 }
 

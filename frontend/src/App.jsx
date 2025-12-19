@@ -9,10 +9,12 @@ function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (token) {
-      setIsAuthenticated(true);
-    }
+    // Force redirect to login on visit/refresh by not checking token
+    // const token = localStorage.getItem('token');
+    // if (token) {
+    //   setIsAuthenticated(true);
+    // }
+    setIsAuthenticated(false);
   }, []);
 
   const handleLoginSuccess = () => {
@@ -33,9 +35,9 @@ function App() {
   }
 
   return page === 'login' ? (
-    <Login 
-      onLoginSuccess={handleLoginSuccess} 
-      onSwitchToSignup={() => setPage('signup')} 
+    <Login
+      onLoginSuccess={handleLoginSuccess}
+      onSwitchToSignup={() => setPage('signup')}
     />
   ) : (
     <Signup onSwitchToLogin={() => setPage('login')} />

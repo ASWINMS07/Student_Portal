@@ -3,6 +3,8 @@ import AdminStudents from './AdminStudents';
 import AdminAttendance from './AdminAttendance';
 import AdminMarks from './AdminMarks';
 import AdminFees from './AdminFees';
+import AdminCourses from './AdminCourses';
+import AdminTimetable from './AdminTimetable';
 
 export default function AdminDashboard() {
   const [activePage, setActivePage] = useState('dashboard');
@@ -30,6 +32,8 @@ export default function AdminDashboard() {
     { id: 'attendance', label: 'Attendance' },
     { id: 'marks', label: 'Marks' },
     { id: 'fees', label: 'Fees' },
+    { id: 'courses', label: 'Courses' },
+    { id: 'timetable', label: 'Timetable' },
   ];
 
   const renderContent = () => {
@@ -42,6 +46,10 @@ export default function AdminDashboard() {
         return <AdminMarks />;
       case 'fees':
         return <AdminFees />;
+      case 'courses':
+        return <AdminCourses />;
+      case 'timetable':
+        return <AdminTimetable />;
       case 'dashboard':
       default:
         return (
@@ -89,11 +97,10 @@ export default function AdminDashboard() {
               <button
                 key={item.id}
                 onClick={() => setActivePage(item.id)}
-                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${
-                  isActive
+                className={`w-full flex items-center justify-between px-3 py-2 text-sm rounded-lg transition-colors ${isActive
                     ? 'bg-cyan-600 text-white'
                     : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
+                  }`}
               >
                 <span>{item.label}</span>
               </button>

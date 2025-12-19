@@ -23,7 +23,31 @@ app.use(express.json());
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/mern_db';
 
 mongoose.connect(MONGO_URI)
-  .then(() => console.log('MongoDB connected'))
+  .then(async () => {
+    console.log('MongoDB connected');
+
+    // Seed Admin User if not exists
+    try {
+      const User = require('./models/User');
+      const adminEmail = 'admin@gmail.com';
+      const existingAdmin = await User.findOne({ email: adminEmail });
+
+      if (!existingAdmin) {
+        const adminUser = new User({
+          name: 'Admin',
+          studentId: 'ADMIN001', // Dummy ID for admin
+          email: adminEmail,
+          password: 'admin', // Will be hashed by pre-save hook
+          role: 'admin',
+          phone: '0000000000'
+        });
+        await adminUser.save();
+        console.log('Admin user seeded successfully');
+      }
+    } catch (error) {
+      console.error('Error seeding admin:', error);
+    }
+  })
   .catch((err) => console.error('MongoDB connection error:', err));
 
 // Routes
